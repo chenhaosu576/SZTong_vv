@@ -1,0 +1,76 @@
+/**
+ * 主题 CSS 变量
+ * 用于登录注册页面和点击动画
+ */
+
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Serif+SC:wght@500;600;700;900&family=Space+Grotesk:wght@500;600;700&display=swap");
+
+:root {
+  /* 字体 */
+  --font-body: "Plus Jakarta Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-display: "Noto Serif SC", "STSong", serif;
+  --font-data: "Space Grotesk", "Plus Jakarta Sans", sans-serif;
+
+  /* 颜色 - 沙色系 */
+  --sand-100: #f3ead8;
+  --sand-300: #debf8f;
+  --sun-500: #c2832f;
+
+  /* 颜色 - 象牙色系 */
+  --ivory-100: #f9f7ef;
+  --ivory-200: #f1ecdf;
+
+  /* 颜色 - 苔藓绿系 */
+  --moss-100: #dce9da;
+  --moss-300: #9dc2a0;
+  --moss-500: #4f8d60;
+
+  /* 颜色 - 森林绿系 */
+  --forest-600: #2e5d3f;
+  --forest-700: #244832;
+  --forest-900: #13261d;
+
+  /* 颜色 - 煤炭色系 */
+  --coal-900: #0c1713;
+  --coal-800: #152720;
+  --coal-700: #1f362d;
+
+  /* 颜色 - 墨色系 */
+  --ink-900: #16261f;
+  --ink-800: #20362d;
+  --ink-700: #375147;
+  --ink-600: #4c675d;
+  --ink-500: #6a837a;
+
+  /* 边框 */
+  --line-soft: rgba(34, 72, 52, 0.22);
+  --line-strong: rgba(22, 54, 38, 0.38);
+
+  /* 表面 */
+  --surface: #fefdf8;
+  --surface-soft: rgba(255, 255, 255, 0.72);
+
+  /* 阴影 */
+  --shadow-soft: 0 14px 40px rgba(17, 45, 31, 0.12);
+  --shadow-card: 0 26px 70px rgba(11, 35, 24, 0.18);
+
+  /* 向后兼容的别名 */
+  --green-050: #edf6ec;
+  --green-100: #d9ebd8;
+  --green-300: #a9cfae;
+  --green-500: #4f8d60;
+  --green-600: #3b754f;
+  --green-700: #2d5f40;
+  --green-800: #1e4a31;
+}
+
+/* 全局样式重置 */
+* {
+  box-sizing: border-box;
+}
+
+/* 选中文本样式 */
+::selection {
+  background: rgba(69, 123, 84, 0.28);
+  color: var(--forest-900);
+}
