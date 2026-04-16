@@ -42,5 +42,3 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           projectName: sztong_vv
           directory: frontend/dist
-          # 可选: 分支到环境的映射
-          # gitHubToken: ${{ secrets.GITHUB_TOKEN }}
