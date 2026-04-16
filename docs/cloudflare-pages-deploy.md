@@ -10,7 +10,7 @@
 - Secret: `CLOUDFLARE_ACCOUNT_ID`
 - Variable: `CLOUDFLARE_PROJECT_NAME`
 
-`CLOUDFLARE_PROJECT_NAME` 不填时，workflow 默认使用 `sztong-vv`。如果 Cloudflare Pages 项目名不同，请设置这个 Variable。
+`CLOUDFLARE_PROJECT_NAME` 必须和 Cloudflare Pages 项目名完全一致，也就是 `https://<project-name>.pages.dev` 中的 `<project-name>`。
 
 ## Cloudflare API Token 权限
 
