@@ -26,6 +26,16 @@
 - 向 `main` 发起 Pull Request 时会构建并部署同仓库 PR 的预览版本。
 - 外部 fork 的 PR 只构建，不会使用 Cloudflare Secret 部署。
 
+## Cloudflare Pages Git 集成
+
+如果 Cloudflare Pages 仍然启用了 Git 集成，构建设置可以使用：
+
+- Root directory: 留空或 `/`
+- Build command: `npm run build`
+- Build output directory: `dist`
+
+根目录 `npm run build` 会安装并构建 `frontend`，然后把 `frontend/dist` 同步到根目录 `dist`。
+
 ## 本地对应命令
 
 ```bash
