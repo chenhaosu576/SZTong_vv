@@ -12,6 +12,7 @@ import { useRoute } from "vue-router";
 
 import BrandLogo from "./BrandLogo.vue";
 import { accountMenuLinks, findActiveNavPath } from "../../router/siteMap";
+import { getCurrentCity } from "../../mock/mapApi";
 
 const props = defineProps({
   brand: {
@@ -40,6 +41,8 @@ const accountMenuOpen = ref(false);
 const mobileMenuOpen = ref(false);
 const hoveredPath = ref("");
 const indicatorTransitionsEnabled = ref(false);
+const currentCity = ref("北京");
+const isLocating = ref(false);
 const indicatorHiddenStyle = {
   opacity: 0,
   width: "0px",
@@ -171,6 +174,23 @@ function handleLogout() {
   emit("logout");
 }
 
+async function handleLocation() {
+  if (isLocating.value) return;
+
+  isLocating.value = true;
+  currentCity.value = "定位中...";
+
+  try {
+    const city = await getCurrentCity();
+    currentCity.value = city || "北京";
+  } catch (error) {
+    console.error("定位失败:", error);
+    currentCity.value = "北京";
+  } finally {
+    isLocating.value = false;
+  }
+}
+
 function handlePointerDown(event) {
   const target = event.target;
 
@@ -224,6 +244,8 @@ onMounted(() => {
   document.addEventListener("pointerdown", handlePointerDown);
   document.addEventListener("keydown", handleKeydown);
   nextTick(() => syncIndicator(activeNavPath.value));
+  // 自动获取定位
+  handleLocation();
 });
 
 onUnmounted(() => {
@@ -265,9 +287,15 @@ onUnmounted(() => {
       </nav>
 
       <div class="nav-actions">
-        <button class="city-chip" type="button" aria-label="当前城市，北京">
+        <button
+          class="city-chip"
+          type="button"
+          aria-label="当前城市"
+          :disabled="isLocating"
+          @click="handleLocation"
+        >
           <span class="city-chip__dot" aria-hidden="true" />
-          <span>北京</span>
+          <span>{{ currentCity }}</span>
           <span class="city-chip__caret" aria-hidden="true" />
         </button>
 

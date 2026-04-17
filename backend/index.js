@@ -13,12 +13,31 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// 服务前端静态文件
-app.use(express.static(path.join(__dirname, '../frontend/dist')));
+// ============ 百度地图定位 API ============
+app.get('/api/location', async (req, res) => {
+  const { lat, lng } = req.query;
 
-// SPA fallback - 让前端路由正常工作
-app.use((req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
+  if (!lat || !lng) {
+    return res.status(400).json({ error: '缺少经纬度参数' });
+  }
+
+  try {
+    const baiduAk = process.env.BAIDU_MAP_AK || 'KSefYxBYFyEl3hKq45NSaZBWlWXNMSqf';
+    const url = `https://api.map.baidu.com/reverse_geocoding/v3/?ak=${baiduAk}&output=json&coordtype=wgs84ll&location=${lat},${lng}`;
+
+    const response = await axios.get(url);
+    const data = response.data;
+
+    if (data.status === 0 && data.result?.addressComponent) {
+      const city = data.result.addressComponent.city;
+      res.json({ city: city ? city.replace('市', '') : null });
+    } else {
+      res.status(500).json({ error: '逆地理编码失败' });
+    }
+  } catch (error) {
+    console.error('百度地图API错误:', error.message);
+    res.status(500).json({ error: error.message || '定位失败' });
+  }
 });
 
 // ============ DeepSeek 流式聊天 API ============
@@ -240,10 +259,19 @@ function normalizeCategory(category) {
   return "其他垃圾";
 }
 
+// 服务前端静态文件（API路由之后）
+app.use(express.static(path.join(__dirname, '../frontend/dist')));
+
+// SPA fallback - 让前端路由正常工作
+app.use((req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
+});
+
 // 启动服务器
 app.listen(PORT, () => {
   console.log(`🚀 收智通后端服务已启动: http://localhost:${PORT}`);
   console.log(`可用接口:`);
+  console.log(`  - GET  /api/location     (百度地图定位)`);
   console.log(`  - POST /api/chat        (DeepSeek 流式聊天)`);
   console.log(`  - POST /api/analyze-image (MiniMax 图片识别)`);
 });
