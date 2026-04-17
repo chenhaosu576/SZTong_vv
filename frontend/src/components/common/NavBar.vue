@@ -10,6 +10,7 @@ import {
 } from "vue";
 import { useRoute } from "vue-router";
 
+import BrandLogo from "./BrandLogo.vue";
 import { accountMenuLinks, findActiveNavPath } from "../../router/siteMap";
 
 const props = defineProps({
@@ -236,11 +237,7 @@ onUnmounted(() => {
   <header class="nav-wrap">
     <div class="page-width nav-wrap__inner">
       <router-link class="brand" to="/">
-        <span class="brand__glyph" aria-hidden="true">SZT</span>
-        <span class="brand__copy">
-          <strong class="brand__name">{{ brand }}</strong>
-          <small class="brand__sub">GREEN LOOP</small>
-        </span>
+        <BrandLogo variant="nav" :title="brand" />
       </router-link>
 
       <nav
@@ -422,55 +419,18 @@ onUnmounted(() => {
 .nav-wrap__inner {
   min-height: 72px;
   display: grid;
-  grid-template-columns: minmax(176px, 212px) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(210px, 244px) minmax(0, 1fr) auto;
   align-items: center;
-  gap: 16px;
+  gap: 18px;
 }
 
 .brand {
-  text-decoration: none;
-  color: var(--ink-900);
+  min-width: 0;
+  max-width: 100%;
   display: inline-flex;
   align-items: center;
-  gap: 12px;
-  min-width: 0;
-}
-
-.brand__glyph {
-  width: 36px;
-  height: 36px;
-  border-radius: 12px;
-  display: grid;
-  place-items: center;
-  color: #f7fff9;
-  font-family: var(--font-data);
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  background: linear-gradient(145deg, var(--forest-700), #5e9a71);
-  box-shadow: 0 8px 20px rgba(27, 72, 48, 0.2);
-}
-
-.brand__copy {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-
-.brand__name {
-  font-family: var(--font-display);
-  font-size: 1.14rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  line-height: 1.05;
-}
-
-.brand__sub {
-  font-family: var(--font-data);
-  font-size: 0.62rem;
-  font-weight: 600;
-  letter-spacing: 0.18em;
-  color: rgba(76, 103, 93, 0.8);
+  text-decoration: none;
+  color: var(--ink-900);
 }
 
 .nav-links {
@@ -858,7 +818,7 @@ onUnmounted(() => {
 
 @media (max-width: 1180px) {
   .nav-wrap__inner {
-    grid-template-columns: minmax(160px, 1fr) auto auto;
+    grid-template-columns: minmax(0, 1fr) auto auto;
     gap: 12px;
   }
 
@@ -875,6 +835,10 @@ onUnmounted(() => {
   .nav-wrap__inner {
     min-height: 68px;
     gap: 10px;
+  }
+
+  .brand {
+    max-width: 210px;
   }
 
   .city-chip {
@@ -898,6 +862,10 @@ onUnmounted(() => {
 @media (max-width: 560px) {
   .nav-actions {
     gap: 8px;
+  }
+
+  .brand {
+    max-width: 176px;
   }
 
   .city-chip {

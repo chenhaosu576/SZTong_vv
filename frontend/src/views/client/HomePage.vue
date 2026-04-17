@@ -765,46 +765,7 @@ onUnmounted(() => {
 }
 
 .hero-actions {
-  display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
   justify-content: center;
-}
-
-.hero-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 18px 40px;
-  border-radius: 999px;
-  font-size: 1.125rem;
-  font-weight: 700;
-  text-decoration: none;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  border: none;
-}
-
-.hero-btn-primary {
-  background: linear-gradient(135deg, var(--forest-700) 0%, var(--moss-500) 100%);
-  color: white;
-  box-shadow: 0 12px 24px rgba(46, 93, 63, 0.25);
-}
-
-.hero-btn-primary:hover {
-  transform: scale(1.05);
-  box-shadow: 0 16px 32px rgba(46, 93, 63, 0.35);
-}
-
-.hero-btn-secondary {
-  background: transparent;
-  color: var(--forest-700);
-  border: 1px solid rgba(112, 123, 100, 0.3);
-}
-
-.hero-btn-secondary:hover {
-  background: rgba(236, 239, 228, 0.5);
-  border-color: var(--forest-700);
 }
 
 /* Core Functions Section */
@@ -1666,10 +1627,6 @@ onUnmounted(() => {
     width: 100%;
   }
 
-  .hero-btn {
-    width: 100%;
-  }
-
   .core-functions-section,
   .why-choose-section,
   .news-section {
@@ -1772,10 +1729,6 @@ onUnmounted(() => {
 
   .hero-actions {
     flex-direction: column;
-    width: 100%;
-  }
-
-  .hero-btn {
     width: 100%;
   }
 

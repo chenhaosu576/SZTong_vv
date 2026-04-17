@@ -171,8 +171,8 @@ const safetyRules = [
           旧物改造不仅是回收，更是一种生活艺术。在这里，每一个废弃容器、每一件旧衣，都能在你的灵感中重获新生。
         </p>
         <div class="hero-actions">
-          <a href="#material-wall" class="btn">按材质寻找灵感</a>
-          <a href="#community-picks" class="btn btn--ghost">查看社区精选</a>
+          <a href="#material-wall" class="hero-btn hero-btn-primary">开始改造</a>
+          <a href="#community-picks" class="hero-btn hero-btn-secondary">浏览案例</a>
         </div>
       </div>
       <div class="hero-image">
@@ -350,6 +350,9 @@ const safetyRules = [
   max-width: 1280px;
   margin: 0 auto;
   padding: 0 2rem;
+  --hero-cta-primary-bg: linear-gradient(135deg, #2f6547 0%, #6aa27a 100%);
+  --hero-cta-primary-shadow: 0 10px 20px rgba(47, 101, 71, 0.18);
+  --hero-cta-primary-hover-shadow: 0 14px 26px rgba(47, 101, 71, 0.24);
 }
 
 /* Hero Section */
@@ -387,12 +390,6 @@ const safetyRules = [
   color: var(--ink-600);
   margin: 0 0 3rem;
   max-width: 42rem;
-}
-
-.hero-actions {
-  display: flex;
-  gap: 1.5rem;
-  flex-wrap: wrap;
 }
 
 .hero-image {
@@ -935,10 +932,6 @@ const safetyRules = [
 
   .hero-title {
     font-size: 2.5rem;
-  }
-
-  .hero-actions {
-    flex-direction: column;
   }
 
   .material-wall-section,

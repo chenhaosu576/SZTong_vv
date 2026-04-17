@@ -1,9 +1,14 @@
+<script setup>
+import BrandLogo from "./BrandLogo.vue";
+</script>
+
 <template>
   <footer class="site-footer">
     <div class="footer-container">
       <section class="branding-section" aria-labelledby="footer-brand-title">
         <div class="brand-info">
-          <span id="footer-brand-title" class="brand-name">收智通</span>
+          <BrandLogo variant="footer" />
+          <span id="footer-brand-title" class="sr-only">收智通</span>
           <p class="brand-description">
             收智通是一个面向城市绿色生活的智能回收服务平台，结合 AI 识别、回收预约、旧物焕新与公益流转，让闲置物品更高效地进入再利用流程。
           </p>
@@ -95,15 +100,7 @@
 
 .brand-info {
   display: grid;
-  gap: 0.9rem;
-}
-
-.brand-name {
-  color: #28583d;
-  font-family: var(--font-display, "Plus Jakarta Sans", sans-serif);
-  font-size: 1.4rem;
-  font-weight: 700;
-  letter-spacing: 0.01em;
+  gap: 1rem;
 }
 
 .brand-description,
@@ -221,6 +218,18 @@
   font-weight: 600;
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 @media (max-width: 1024px) {
   .footer-container {
     grid-template-columns: 1fr 1fr;
@@ -265,7 +274,6 @@
     border-top-color: rgba(132, 169, 145, 0.08);
   }
 
-  .brand-name,
   .metric-value,
   .nav-link:hover,
   .nav-link:focus-visible {

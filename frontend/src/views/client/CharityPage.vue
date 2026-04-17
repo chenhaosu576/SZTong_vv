@@ -205,8 +205,8 @@ function handleProcessClick() {
 
 onMounted(() => {
   const heroActions = document.querySelector(".hero-actions");
-  const primaryButton = heroActions?.querySelector(".btn-primary");
-  const secondaryButton = heroActions?.querySelector(".btn-secondary");
+  const primaryButton = heroActions?.querySelector(".hero-btn-primary");
+  const secondaryButton = heroActions?.querySelector(".hero-btn-secondary");
 
   primaryButton?.addEventListener("click", handleProjectsClick);
   secondaryButton?.addEventListener("click", handleProcessClick);
@@ -285,8 +285,8 @@ function scrollToSection(id) {
             选择一个正在募集的公益项目，完成本次捐赠，让每一份善意精准送达。
           </p>
           <div class="hero-actions">
-            <button class="btn-primary">查看募集项目</button>
-            <button class="btn-secondary">了解捐赠流程</button>
+            <button class="hero-btn hero-btn-primary">立即捐赠</button>
+            <button class="hero-btn hero-btn-secondary">查看项目</button>
           </div>
           <div class="hero-features">
             <div class="feature-item">
@@ -655,6 +655,9 @@ function scrollToSection(id) {
 
 .charity-page {
   min-height: 100vh;
+  --hero-cta-primary-bg: linear-gradient(135deg, #113612 0%, #2d6a2f 55%, #4d8e4d 100%);
+  --hero-cta-primary-shadow: 0 14px 28px rgba(17, 54, 18, 0.28);
+  --hero-cta-primary-hover-shadow: 0 18px 34px rgba(17, 54, 18, 0.38);
 }
 
 /* Hero Section */
@@ -720,41 +723,7 @@ function scrollToSection(id) {
 }
 
 .hero-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
   margin-bottom: 48px;
-}
-
-.btn-primary,
-.btn-secondary {
-  padding: 16px 32px;
-  border-radius: 12px;
-  font-weight: 700;
-  font-size: 1.125rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  border: none;
-}
-
-.btn-primary {
-  background: linear-gradient(135deg, #154212, #2d5a27);
-  color: white;
-  box-shadow: 0 8px 24px rgba(21, 66, 18, 0.2);
-}
-
-.btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 32px rgba(21, 66, 18, 0.3);
-}
-
-.btn-secondary {
-  background: #eae8e4;
-  color: var(--ink-900);
-}
-
-.btn-secondary:hover {
-  background: #e4e2de;
 }
 
 .hero-features {
