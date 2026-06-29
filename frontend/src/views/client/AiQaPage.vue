@@ -19,7 +19,7 @@ const {
   renamingChatId,
   renameDraft,
   deleteConfirmChatId,
-  closeHistoryInteractions,
+  closeAllLayers,
 } = sessions;
 
 const messagesPanel = ref(null);
@@ -49,8 +49,13 @@ function toggleSidebar() {
   const nextOpenState = !sidebarOpen.value;
   sidebarOpen.value = nextOpenState;
   if (!nextOpenState) {
-    closeHistoryInteractions();
+    closeAllLayers();
   }
+}
+
+function navigateTo(path) {
+  sessions.closeAllLayers();
+  router.push(path);
 }
 
 onMounted(() => {
@@ -84,7 +89,7 @@ onMounted(() => {
         @confirm-delete="sessions.confirmDelete"
         @remove-chat="sessions.removeChat"
         @update-rename-draft="(value) => (renameDraft = value)"
-        @nav-to="(path) => { sessions.closeHistoryInteractions(); router.push(path); }"
+        @nav-to="navigateTo"
         @close-layers="sessions.closeHistoryLayers"
       />
 
@@ -181,20 +186,5 @@ onMounted(() => {
   .sidebar-overlay {
     display: block;
   }
-}
-
-.material-symbols-outlined {
-  font-family: "Material Symbols Outlined";
-  font-weight: normal;
-  font-style: normal;
-  font-size: 24px;
-  line-height: 1;
-  letter-spacing: normal;
-  text-transform: none;
-  display: inline-block;
-  white-space: nowrap;
-  word-wrap: normal;
-  direction: ltr;
-  -webkit-font-smoothing: antialiased;
 }
 </style>

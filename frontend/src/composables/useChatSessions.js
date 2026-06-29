@@ -113,7 +113,7 @@ export function useChatSessions() {
     renameDraft.value = "";
   }
 
-  function closeHistoryInteractions() {
+  function closeAllLayers() {
     closeHistoryLayers();
     cancelRename();
   }
@@ -129,14 +129,14 @@ export function useChatSessions() {
     chatHistory.value.unshift(newChat);
     currentChatId.value = newChat.id;
     sidebarOpen.value = false;
-    closeHistoryInteractions();
+    closeAllLayers();
     persistChatHistory();
   }
 
   function switchChat(chatId) {
     currentChatId.value = chatId;
     sidebarOpen.value = false;
-    closeHistoryInteractions();
+    closeAllLayers();
   }
 
   function toggleChatMenu(chatId) {
@@ -184,7 +184,7 @@ export function useChatSessions() {
         chatHistory.value[index] ?? chatHistory.value[index - 1] ?? chatHistory.value[0];
       currentChatId.value = nextChat.id;
     }
-    closeHistoryInteractions();
+    closeAllLayers();
     persistChatHistory();
   }
 
@@ -203,7 +203,7 @@ export function useChatSessions() {
     getChatById,
     closeHistoryLayers,
     cancelRename,
-    closeHistoryInteractions,
+    closeAllLayers,
     ensureCurrentChat,
     handleNewChat,
     switchChat,
