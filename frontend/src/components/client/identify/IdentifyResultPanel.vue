@@ -519,24 +519,7 @@ const isSample = (state) => state === "sample";
   font-size: 1.95rem;
 }
 
-.eco-badge {
-  display: grid;
-  place-items: center;
-  width: 78px;
-  height: 78px;
-  border-radius: 18px;
-  background: rgba(229, 248, 237, 0.9);
-  box-shadow:
-    inset 0 0 0 1px rgba(46, 93, 63, 0.05),
-    inset 0 -10px 20px rgba(79, 141, 96, 0.08);
-}
-
-.eco-badge span {
-  color: var(--forest-600);
-  font-family: var(--font-display);
-  font-size: 2rem;
-  font-weight: 700;
-}
+/* .eco-badge removed — no consumer in this component (the resolved branch uses .category-mark instead) */
 
 .info-stack {
   display: grid;
@@ -693,11 +676,6 @@ const isSample = (state) => state === "sample";
 
   .category-row strong {
     font-size: 1.55rem;
-  }
-
-  .eco-badge {
-    width: 64px;
-    height: 64px;
   }
 
   .info-card {

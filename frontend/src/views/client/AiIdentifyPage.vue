@@ -2,8 +2,6 @@
 import { onBeforeUnmount, reactive, ref } from "vue";
 
 import CameraCaptureModal from "../../components/client/CameraCaptureModal.vue";
-import IdentifyActionArea from "../../components/client/identify/IdentifyActionArea.vue";
-import IdentifyInfoCard from "../../components/client/identify/IdentifyInfoCard.vue";
 import IdentifyResultPanel from "../../components/client/identify/IdentifyResultPanel.vue";
 import { useRevealOnScroll } from "../../composables/useRevealOnScroll";
 import { useImageRecognition } from "../../composables/useImageRecognition";
