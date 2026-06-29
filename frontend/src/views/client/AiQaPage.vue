@@ -1,10 +1,9 @@
 ﻿<script setup>
 import { nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import { streamChat } from "@/mock/Aiapi";
 import { useChatViewState } from "@/composables/useChatViewState";
 import { useChatSessions } from "@/composables/useChatSessions";
-import { createId } from "@/utils/chatId";
+import { useChatStream } from "@/composables/useChatStream";
 
 const router = useRouter();
 
@@ -28,12 +27,10 @@ const {
   confirmDelete,
 } = sessions;
 
-const userInput = ref("");
 const chatContainer = ref(null);
 const fileInput = ref(null);
 const renameInputRef = ref(null);
 const historyListRef = ref(null);
-const isThinking = ref(false);
 const isStreaming = ref(false);
 
 const { messages, showSuggestions, iconMap } = useChatViewState({
@@ -41,30 +38,22 @@ const { messages, showSuggestions, iconMap } = useChatViewState({
   currentChatId: sessions.currentChatId,
 });
 
-const suggestions = ["如何预约上门回收？", "AI 识别垃圾分类怎么用？", "积分如何兑换？"];
-
-function parseModules(content) {
-  const jsonMatch = content.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    return null;
-  }
-
-  try {
-    const data = JSON.parse(jsonMatch[0]);
-    if (data.modules && Array.isArray(data.modules)) {
-      return data.modules;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-function scrollToBottom() {
-  if (chatContainer.value) {
-    chatContainer.value.scrollTop = chatContainer.value.scrollHeight;
-  }
-}
+const {
+  userInput,
+  isThinking,
+  suggestions,
+  handleSend,
+  handleSuggestionClick,
+  handleInputKeydown,
+  scrollToBottom,
+} = useChatStream({
+  chatHistory: sessions.chatHistory,
+  currentChatId: sessions.currentChatId,
+  getChatById: sessions.getChatById,
+  ensureCurrentChat: sessions.ensureCurrentChat,
+  persistChatHistory: sessions.persistChatHistory,
+  chatContainerRef: chatContainer,
+});
 
 function handleNewChat() {
   sessions.handleNewChat();
@@ -86,99 +75,6 @@ async function beginRename(chat) {
 function removeChat(chatId) {
   sessions.removeChat(chatId);
   nextTick(() => scrollToBottom());
-}
-
-function handleSuggestionClick(suggestion) {
-  userInput.value = suggestion;
-  handleSend();
-}
-
-async function handleSend() {
-  const trimmedInput = userInput.value.trim();
-  if (!trimmedInput || isThinking.value) {
-    return;
-  }
-
-  ensureCurrentChat();
-  const currentChat = getChatById(currentChatId.value);
-  if (!currentChat) {
-    return;
-  }
-
-  const userMessage = {
-    id: createId(),
-    type: "user",
-    content: trimmedInput,
-    timestamp: new Date().toLocaleTimeString("zh-CN", {
-      hour: "2-digit",
-      minute: "2-digit",
-    }),
-  };
-
-  currentChat.messages.push(userMessage);
-
-  const userMessageCount = currentChat.messages.filter((message) => message.type === "user").length;
-  if (userMessageCount === 1 && currentChat.titleLocked !== true) {
-    currentChat.title = trimmedInput.slice(0, 20) + (trimmedInput.length > 20 ? "..." : "");
-  }
-
-  userInput.value = "";
-  isThinking.value = true;
-  isStreaming.value = true;
-  persistChatHistory();
-
-  await nextTick();
-  scrollToBottom();
-
-  const aiMessage = {
-    id: createId(),
-    type: "ai",
-    content: "",
-    timestamp: new Date().toLocaleTimeString("zh-CN", {
-      hour: "2-digit",
-      minute: "2-digit",
-    }),
-    parsedModules: null,
-  };
-  currentChat.messages.push(aiMessage);
-
-  streamChat(
-    userMessage.content,
-    currentChat.messages,
-    (chunk) => {
-      aiMessage.content += chunk;
-      const modules = parseModules(aiMessage.content);
-      if (modules) {
-        aiMessage.parsedModules = modules;
-      }
-      nextTick(() => scrollToBottom());
-    },
-    (fullContent) => {
-      isThinking.value = false;
-      isStreaming.value = false;
-      const modules = parseModules(fullContent);
-      if (modules) {
-        aiMessage.parsedModules = modules;
-      }
-      persistChatHistory();
-      nextTick(() => scrollToBottom());
-    },
-    (errorMsg) => {
-      aiMessage.content = `抱歉，发生了错误：${errorMsg}。请稍后重试。`;
-      aiMessage.parsedModules = null;
-      isThinking.value = false;
-      isStreaming.value = false;
-      persistChatHistory();
-      nextTick(() => scrollToBottom());
-    }
-  );
-}
-
-function handleInputKeydown(event) {
-  if (event.key === "Enter" && !event.shiftKey) {
-    event.preventDefault();
-    handleSend();
-  }
 }
 
 function handleAttachment() {
