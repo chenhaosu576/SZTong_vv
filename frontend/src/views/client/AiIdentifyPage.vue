@@ -3,6 +3,7 @@ import { onBeforeUnmount, reactive, ref } from "vue";
 import { RouterLink } from "vue-router";
 
 import CameraCaptureModal from "../../components/client/CameraCaptureModal.vue";
+import IdentifyInfoCard from "../../components/client/identify/IdentifyInfoCard.vue";
 import { useRevealOnScroll } from "../../composables/useRevealOnScroll";
 import { useImageRecognition } from "../../composables/useImageRecognition";
 import { useRecognitionViewState } from "../../composables/useRecognitionViewState";
@@ -269,15 +270,17 @@ onBeforeUnmount(() => {
               <p class="failed-card__lead">{{ view.displayResult.action }}</p>
 
               <div class="failed-card__tips">
-                <article class="info-card info-card--primary">
-                  <p class="info-card__label">建议重试方式</p>
-                  <h3>更换清晰、单一主体的图片</h3>
-                </article>
+                <IdentifyInfoCard
+                  variant="primary"
+                  label="建议重试方式"
+                  heading="更换清晰、单一主体的图片"
+                />
 
-                <article class="info-card info-card--warm">
-                  <p class="info-card__label">拍摄提醒</p>
-                  <p>{{ view.displayWarning }}</p>
-                </article>
+                <IdentifyInfoCard
+                  variant="warm"
+                  label="拍摄提醒"
+                  :body="view.displayWarning"
+                />
               </div>
             </article>
           </div>
@@ -307,15 +310,17 @@ onBeforeUnmount(() => {
             </div>
 
             <div class="info-stack">
-              <article class="info-card info-card--primary">
-                <p class="info-card__label">投放要求</p>
-                <h3>{{ view.displayResult.action }}</h3>
-              </article>
+              <IdentifyInfoCard
+                variant="primary"
+                label="投放要求"
+                :heading="view.displayResult.action"
+              />
 
-              <article class="info-card info-card--warm">
-                <p class="info-card__label">特别提醒</p>
-                <p>{{ view.displayWarning }}</p>
-              </article>
+              <IdentifyInfoCard
+                variant="warm"
+                label="特别提醒"
+                :body="view.displayWarning"
+              />
             </div>
 
             <div v-if="view.showResultActions" class="action-area">
@@ -959,56 +964,6 @@ button {
   gap: 16px;
 }
 
-.info-card {
-  display: grid;
-  gap: 10px;
-  padding: 22px 24px;
-  border-radius: 20px;
-}
-
-.info-card__label {
-  margin: 0;
-  font-size: 0.82rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-}
-
-.info-card h3,
-.info-card p {
-  margin: 0;
-}
-
-.info-card h3 {
-  color: var(--ink-900);
-  font-family: var(--font-display);
-  font-size: 1.55rem;
-  line-height: 1.52;
-}
-
-.info-card p {
-  color: rgba(76, 103, 93, 0.92);
-  font-size: 1.02rem;
-  line-height: 1.84;
-}
-
-.info-card--primary {
-  border-left: 4px solid var(--moss-500);
-  background: rgba(229, 248, 237, 0.46);
-}
-
-.info-card--primary .info-card__label {
-  color: var(--moss-500);
-}
-
-.info-card--warm {
-  border-left: 4px solid rgba(194, 131, 47, 0.46);
-  background: rgba(194, 131, 47, 0.08);
-}
-
-.info-card--warm .info-card__label {
-  color: var(--sun-500);
-}
-
 .loading-card,
 .failed-card {
   display: grid;
@@ -1334,18 +1289,6 @@ button {
   .eco-badge {
     width: 64px;
     height: 64px;
-  }
-
-  .info-card {
-    padding: 18px;
-  }
-
-  .info-card h3 {
-    font-size: 1.24rem;
-  }
-
-  .info-card p {
-    font-size: 0.95rem;
   }
 
   .primary-action {
