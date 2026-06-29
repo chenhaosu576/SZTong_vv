@@ -42,7 +42,7 @@ const {
   getChatById: sessions.getChatById,
   ensureCurrentChat: sessions.ensureCurrentChat,
   persistChatHistory: sessions.persistChatHistory,
-  chatContainerRef: () => messagesPanel.value?.rootRef ?? null,
+  chatContainerRef: () => messagesPanel.value?.rootRef,
 });
 
 function toggleSidebar() {

@@ -50,13 +50,6 @@ export function useChatStream({
     handleSend();
   }
 
-  function handleInputKeydown(event) {
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
-      handleSend();
-    }
-  }
-
   async function handleSend() {
     const trimmedInput = userInput.value.trim();
     if (!trimmedInput || isThinking.value) return;
@@ -133,7 +126,6 @@ export function useChatStream({
     suggestions: SUGGESTIONS,
     handleSend,
     handleSuggestionClick,
-    handleInputKeydown,
     scrollToBottom,
   };
 }
