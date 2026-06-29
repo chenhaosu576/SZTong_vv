@@ -1,35 +1,11 @@
 <script setup>
-import { computed, onBeforeUnmount, ref } from "vue";
+import { onBeforeUnmount, reactive, ref } from "vue";
 import { RouterLink } from "vue-router";
 
 import CameraCaptureModal from "../../components/client/CameraCaptureModal.vue";
 import { useRevealOnScroll } from "../../composables/useRevealOnScroll";
-import { analyzeImage } from "../../mock/clientApi";
-
-const SAMPLE_RESULT = Object.freeze({
-  name: "矿泉水瓶",
-  category: "可回收物",
-  score: 98.4,
-  action: "请排空液体、压扁后投放，瓶盖建议分投。",
-  warning: "严禁混入厨余垃圾或受污染严重的塑料包装，请保持容器整洁。",
-  preview:
-    "https://lh3.googleusercontent.com/aida-public/AB6AXuBlUIW4u43B2eU93ycMIzxnmfLTkpGpE-OST-kBlFMDB-US0AGKx3MlXzQRAU8xDGPUK7GN-UUzdcMkR_d1mkWroSjcx9wS5vVq_jCCs-OPzDksEIqfYfXcKjSUL85R4yMQgqoBhuljUDCSsZN4Kyo_RzhjgyGqfLaG7w3JBUwjeFmR__RXihAiwn3GWD1pWYyERL8wRQBc1Tb-qqn4pw1OHPQHW9PVA0bjCFUyzDQ3SFK67g5L2kWJ5fmqUeHT6MgmC0i3sH5hDcQ",
-  previewAlt: "示例识别图片",
-});
-
-const FAILED_RESULT = Object.freeze({
-  name: "暂未识别成功",
-  category: "请重试",
-  action: "建议重新上传主体更清晰、背景更干净的单一物品照片。",
-  warning: "请尽量保证画面中只有一个废弃物主体，并避免反光、模糊或遮挡。",
-});
-
-const RESULT_WARNING_MAP = {
-  有害垃圾: "投放前请做好密封与绝缘处理，并尽量避免和其它垃圾混装。",
-  可回收物: "请尽量保持材质单一与表面整洁，明显污渍建议先简单清理。",
-  厨余垃圾: "请先去除包装并尽快投放，避免长时间堆放带来异味与渗漏。",
-  其他垃圾: "若材质复杂或被严重污染，建议先咨询处理方式后再投放。",
-};
+import { useImageRecognition } from "../../composables/useImageRecognition";
+import { useRecognitionViewState } from "../../composables/useRecognitionViewState";
 
 const pageRef = ref(null);
 const uploadInput = ref(null);
@@ -37,116 +13,21 @@ const uploadInput = ref(null);
 useRevealOnScroll(pageRef);
 
 const recognitionMode = ref("single");
-const imageUrl = ref("");
-const imageName = ref("");
-const recognizing = ref(false);
 const cameraModalOpen = ref(false);
-const recognitionResults = ref([]);
 const devNoticeVisible = ref(false);
 
 let devNoticeTimer = null;
 
-const currentResult = computed(() => recognitionResults.value[0] ?? null);
-const hasUploadedImage = computed(() => Boolean(imageUrl.value));
-const hasResolvedResult = computed(() => Boolean(currentResult.value));
-const resultViewState = computed(() => {
-  if (recognizing.value && hasUploadedImage.value) {
-    return "loading";
-  }
-
-  if (hasResolvedResult.value) {
-    return "resolved";
-  }
-
-  if (hasUploadedImage.value) {
-    return "failed";
-  }
-
-  return "sample";
-});
-const isSampleState = computed(() => resultViewState.value === "sample");
-
-const displayResult = computed(() => {
-  if (resultViewState.value === "failed") {
-    return FAILED_RESULT;
-  }
-
-  if (resultViewState.value === "resolved") {
-    return currentResult.value;
-  }
-
-  return SAMPLE_RESULT;
-});
-
-const displayImage = computed(() =>
-  isSampleState.value ? SAMPLE_RESULT.preview : imageUrl.value || SAMPLE_RESULT.preview,
-);
-const displayImageAlt = computed(
-  () =>
-    (isSampleState.value
-      ? SAMPLE_RESULT.previewAlt
-      : imageName.value || "上传识别图片") ||
-    displayResult.value.previewAlt ||
-    displayResult.value.name,
-);
-
-const displayConfidence = computed(() => {
-  const score = Number(displayResult.value.score);
-  return `${Number.isInteger(score) ? score : score.toFixed(1)}% CONFIDENCE`;
-});
-
-const displayWarning = computed(
-  () =>
-    displayResult.value.warning ||
-    RESULT_WARNING_MAP[displayResult.value.category] ||
-    "若图片中存在混合材质、液体残留或严重污损，建议进一步确认后再投放。",
-);
-
-const previewFrameLabel = computed(() => {
-  if (resultViewState.value === "loading") {
-    return "AI ANALYZING";
-  }
-
-  if (resultViewState.value === "failed") {
-    return "RETRY NEEDED";
-  }
-
-  if (resultViewState.value === "resolved") {
-    return `DETECTED: ${displayResult.value.name}`;
-  }
-
-  return "SAMPLE PREVIEW";
-});
-
-const uploadHeadline = computed(() =>
-  recognitionMode.value === "single"
-    ? recognizing.value
-      ? "AI 正在识别中"
-      : "上传需要识别的废弃物"
-    : "批量识别功能开发中",
-);
-
-const uploadSummary = computed(() =>
-  recognitionMode.value === "single"
-    ? "支持 JPG/PNG 格式。为了获得最佳识别效果，请在纯色背景下拍摄物体的完整图像。"
-    : "当前仅保留视觉位与交互占位，你可以停留在批量识别模式，后续能力将逐步开放。",
-);
-
-const categoryMark = computed(() => {
-  if (resultViewState.value === "failed") return "?";
-  if (displayResult.value.category.includes("有害")) return "!";
-  if (displayResult.value.category.includes("厨余")) return "厨";
-  if (displayResult.value.category.includes("其他")) return "其";
-  return "♻";
-});
-
-const ecoBadgeMark = computed(() => {
-  if (resultViewState.value === "failed") return "↺";
-  return displayResult.value.category.includes("有害") ? "!" : "叶";
-});
-
-const showResultActions = computed(
-  () => resultViewState.value === "sample" || resultViewState.value === "resolved",
+const recognitionState = useImageRecognition();
+const recognition = reactive(recognitionState);
+const view = reactive(
+  useRecognitionViewState({
+    imageUrl: recognitionState.imageUrl,
+    imageName: recognitionState.imageName,
+    recognizing: recognitionState.recognizing,
+    results: recognitionState.results,
+    recognitionMode,
+  }),
 );
 
 function clearDevNoticeTimer() {
@@ -165,56 +46,36 @@ function showDevNotice() {
   }, 2400);
 }
 
-function revokeImageUrl() {
-  if (imageUrl.value) {
-    URL.revokeObjectURL(imageUrl.value);
-    imageUrl.value = "";
-  }
-}
-
 function switchRecognitionMode(mode) {
   if (recognitionMode.value === mode) {
-    if (mode === "batch") {
-      showDevNotice();
-    }
+    if (mode === "batch") showDevNotice();
     return;
   }
-
   recognitionMode.value = mode;
-
   if (mode === "batch") {
     cameraModalOpen.value = false;
     showDevNotice();
     return;
   }
-
   clearDevNoticeTimer();
   devNoticeVisible.value = false;
 }
 
 function triggerUpload() {
-  if (recognizing.value && recognitionMode.value === "single") {
-    return;
-  }
-
+  if (recognition.recognizing && recognitionMode.value === "single") return;
   if (recognitionMode.value === "batch") {
     showDevNotice();
     return;
   }
-
   uploadInput.value?.click();
 }
 
 function openCameraCapture() {
-  if (recognizing.value && recognitionMode.value === "single") {
-    return;
-  }
-
+  if (recognition.recognizing && recognitionMode.value === "single") return;
   if (recognitionMode.value === "batch") {
     showDevNotice();
     return;
   }
-
   cameraModalOpen.value = true;
 }
 
@@ -222,49 +83,24 @@ function closeCameraCapture() {
   cameraModalOpen.value = false;
 }
 
-async function recognizeSelectedFile(file, nextImageName = file?.name || "") {
-  if (!file) {
-    return;
-  }
-
-  revokeImageUrl();
-
-  imageUrl.value = URL.createObjectURL(file);
-  imageName.value = nextImageName;
-  recognitionResults.value = [];
-  recognizing.value = true;
-
-  try {
-    const results = await analyzeImage(file);
-    recognitionResults.value = results;
-  } finally {
-    recognizing.value = false;
-  }
-}
-
 async function handleImageUpload(event) {
   const file = event.target.files?.[0];
   if (!file) return;
-
   try {
-    await recognizeSelectedFile(file, file.name);
+    await recognition.recognize(file, file.name);
   } finally {
     event.target.value = "";
   }
 }
 
 async function handleCameraConfirm(payload) {
-  if (!payload?.file || recognizing.value) {
-    return;
-  }
-
+  if (!payload?.file || recognition.recognizing) return;
   closeCameraCapture();
-  await recognizeSelectedFile(payload.file, payload.fileName || payload.file.name);
+  await recognition.recognize(payload.file, payload.fileName || payload.file.name);
 }
 
 onBeforeUnmount(() => {
   clearDevNoticeTimer();
-  revokeImageUrl();
 });
 </script>
 
@@ -322,8 +158,8 @@ onBeforeUnmount(() => {
             </div>
 
             <div class="upload-copy">
-              <h2>{{ uploadHeadline }}</h2>
-              <p>{{ uploadSummary }}</p>
+              <h2>{{ view.uploadHeadline }}</h2>
+              <p>{{ view.uploadSummary }}</p>
             </div>
 
             <div class="upload-actions" :class="{ 'is-batch': recognitionMode === 'batch' }">
@@ -331,18 +167,18 @@ onBeforeUnmount(() => {
                 type="button"
                 class="upload-button upload-button--primary"
                 data-testid="camera-trigger"
-                :disabled="recognizing && recognitionMode === 'single'"
+                :disabled="recognition.recognizing && recognitionMode === 'single'"
                 @click="openCameraCapture"
               >
                 <span class="upload-button__icon">◔</span>
-                <span>{{ recognizing && recognitionMode === "single" ? "识别中..." : "拍照识别" }}</span>
+                <span>{{ recognition.recognizing && recognitionMode === "single" ? "识别中..." : "拍照识别" }}</span>
               </button>
 
               <button
                 type="button"
                 class="upload-button upload-button--secondary"
                 data-testid="album-trigger"
-                :disabled="recognizing && recognitionMode === 'single'"
+                :disabled="recognition.recognizing && recognitionMode === 'single'"
                 @click="triggerUpload"
               >
                 <span class="upload-button__icon">▣</span>
@@ -373,17 +209,17 @@ onBeforeUnmount(() => {
       <div class="result-panel__media">
         <Transition name="result-fade" mode="out-in">
           <div
-            :key="displayImage"
+            :key="view.displayImage"
             class="preview-stage"
             :class="{
-              'is-recognizing': resultViewState === 'loading',
-              'is-sample': isSampleState,
+              'is-recognizing': view.viewState === 'loading',
+              'is-sample': view.viewState === 'sample',
             }"
           >
-            <img :src="displayImage" :alt="displayImageAlt" />
-            <span v-if="isSampleState" class="sample-tag sample-tag--media">示例图片</span>
+            <img :src="view.displayImage" :alt="view.displayImageAlt" />
+            <span v-if="view.viewState === 'sample'" class="sample-tag sample-tag--media">示例图片</span>
 
-            <div v-if="resultViewState === 'loading'" class="preview-stage__scanner" aria-hidden="true">
+            <div v-if="view.viewState === 'loading'" class="preview-stage__scanner" aria-hidden="true">
               <span class="preview-stage__scanner-line" />
             </div>
 
@@ -395,7 +231,7 @@ onBeforeUnmount(() => {
 
               <div class="preview-frame__label">
                 <span class="preview-frame__dot" />
-                <span>{{ previewFrameLabel }}</span>
+                <span>{{ view.previewFrameLabel }}</span>
               </div>
             </div>
           </div>
@@ -404,7 +240,7 @@ onBeforeUnmount(() => {
 
       <div class="result-panel__body">
         <Transition name="result-fade" mode="out-in">
-          <div v-if="resultViewState === 'loading'" key="loading" class="result-copy result-copy--loading">
+          <div v-if="view.viewState === 'loading'" key="loading" class="result-copy result-copy--loading">
             <article class="loading-card" role="status" aria-live="polite">
               <div class="loading-card__signal" aria-hidden="true">
                 <span />
@@ -426,11 +262,11 @@ onBeforeUnmount(() => {
             </article>
           </div>
 
-          <div v-else-if="resultViewState === 'failed'" key="failed" class="result-copy result-copy--failed">
+          <div v-else-if="view.viewState === 'failed'" key="failed" class="result-copy result-copy--failed">
             <article class="failed-card" role="status" aria-live="polite">
               <p class="failed-card__eyebrow">识别结果</p>
-              <h2>{{ displayResult.name }}</h2>
-              <p class="failed-card__lead">{{ displayResult.action }}</p>
+              <h2>{{ view.displayResult.name }}</h2>
+              <p class="failed-card__lead">{{ view.displayResult.action }}</p>
 
               <div class="failed-card__tips">
                 <article class="info-card info-card--primary">
@@ -440,7 +276,7 @@ onBeforeUnmount(() => {
 
                 <article class="info-card info-card--warm">
                   <p class="info-card__label">拍摄提醒</p>
-                  <p>{{ displayWarning }}</p>
+                  <p>{{ view.displayWarning }}</p>
                 </article>
               </div>
             </article>
@@ -448,24 +284,24 @@ onBeforeUnmount(() => {
 
           <div
             v-else
-            :key="`${displayResult.name}-${displayResult.category}-${displayConfidence}`"
+            :key="`${view.displayResult.name}-${view.displayResult.category}-${view.displayConfidence}`"
             class="result-copy"
           >
             <div class="result-head">
               <div class="result-head__copy">
                 <div class="result-meta">
-                  <p class="result-eyebrow">{{ isSampleState ? "系统示例" : "识别结果" }}</p>
-                  <span v-if="isSampleState" class="sample-tag sample-tag--body">示例结果</span>
+                  <p class="result-eyebrow">{{ view.viewState === 'sample' ? "系统示例" : "识别结果" }}</p>
+                  <span v-if="view.viewState === 'sample'" class="sample-tag sample-tag--body">示例结果</span>
                 </div>
 
                 <div class="title-row">
-                  <h2>{{ displayResult.name }}</h2>
-                  <span class="confidence-pill">{{ displayConfidence }}</span>
+                  <h2>{{ view.displayResult.name }}</h2>
+                  <span class="confidence-pill">{{ view.displayConfidence }}</span>
                 </div>
 
                 <div class="category-row">
-                  <span class="category-mark">{{ categoryMark }}</span>
-                  <strong>{{ displayResult.category }}</strong>
+                  <span class="category-mark">{{ view.categoryMark }}</span>
+                  <strong>{{ view.displayResult.category }}</strong>
                 </div>
               </div>
             </div>
@@ -473,16 +309,16 @@ onBeforeUnmount(() => {
             <div class="info-stack">
               <article class="info-card info-card--primary">
                 <p class="info-card__label">投放要求</p>
-                <h3>{{ displayResult.action }}</h3>
+                <h3>{{ view.displayResult.action }}</h3>
               </article>
 
               <article class="info-card info-card--warm">
                 <p class="info-card__label">特别提醒</p>
-                <p>{{ displayWarning }}</p>
+                <p>{{ view.displayWarning }}</p>
               </article>
             </div>
 
-            <div v-if="showResultActions" class="action-area">
+            <div v-if="view.showResultActions" class="action-area">
               <RouterLink class="primary-action" to="/recycle-booking">一键预约回收</RouterLink>
 
               <div class="secondary-actions">
@@ -497,7 +333,7 @@ onBeforeUnmount(() => {
     </section>
     <CameraCaptureModal
       :open="cameraModalOpen"
-      :busy="recognizing && recognitionMode === 'single'"
+      :busy="recognition.recognizing && recognitionMode === 'single'"
       @close="closeCameraCapture"
       @confirm="handleCameraConfirm"
     />
