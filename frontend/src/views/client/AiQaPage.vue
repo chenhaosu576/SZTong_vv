@@ -1,7 +1,8 @@
 ﻿<script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
+import { nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { streamChat } from "@/mock/Aiapi";
+import { useChatViewState } from "@/composables/useChatViewState";
 
 const router = useRouter();
 
@@ -158,17 +159,12 @@ function ensureCurrentChat() {
 ensureCurrentChat();
 persistChatHistory();
 
-const suggestions = ["如何预约上门回收？", "AI 识别垃圾分类怎么用？", "积分如何兑换？"];
+const { messages, showSuggestions, iconMap } = useChatViewState({
+  chatHistory,
+  currentChatId,
+});
 
-const iconMap = {
-  info: "info",
-  recycling: "recycling",
-  tips: "lightbulb",
-  location: "location_on",
-  time: "schedule",
-  eco: "eco",
-  help: "help",
-};
+const suggestions = ["如何预约上门回收？", "AI 识别垃圾分类怎么用？", "积分如何兑换？"];
 
 function parseModules(content) {
   const jsonMatch = content.match(/\{[\s\S]*\}/);
@@ -186,13 +182,6 @@ function parseModules(content) {
     return null;
   }
 }
-
-const messages = computed(() => {
-  const chat = getChatById(currentChatId.value);
-  return chat ? chat.messages : [];
-});
-
-const showSuggestions = computed(() => messages.value.length === 1);
 
 function scrollToBottom() {
   if (chatContainer.value) {
