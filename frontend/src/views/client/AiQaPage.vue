@@ -5,6 +5,7 @@ import { useChatViewState } from "@/composables/useChatViewState";
 import { useChatSessions } from "@/composables/useChatSessions";
 import { useChatStream } from "@/composables/useChatStream";
 import ChatMessage from "@/components/client/qa/ChatMessage.vue";
+import ChatInputPanel from "@/components/client/qa/ChatInputPanel.vue";
 
 const router = useRouter();
 
@@ -29,7 +30,6 @@ const {
 } = sessions;
 
 const chatContainer = ref(null);
-const fileInput = ref(null);
 const renameInputRef = ref(null);
 const historyListRef = ref(null);
 const isStreaming = ref(false);
@@ -45,7 +45,6 @@ const {
   suggestions,
   handleSend,
   handleSuggestionClick,
-  handleInputKeydown,
   scrollToBottom,
 } = useChatStream({
   chatHistory: sessions.chatHistory,
@@ -76,20 +75,6 @@ async function beginRename(chat) {
 function removeChat(chatId) {
   sessions.removeChat(chatId);
   nextTick(() => scrollToBottom());
-}
-
-function handleAttachment() {
-  fileInput.value?.click();
-}
-
-function handleFileChange(event) {
-  const file = event.target.files?.[0];
-  if (!file) {
-    return;
-  }
-
-  console.log("选择的文件:", file.name);
-  alert(`已选择文件: ${file.name}\n（文件上传功能待实现）`);
 }
 
 function navigateTo(path) {
@@ -289,37 +274,13 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <div class="chat-input-wrapper">
-          <div class="chat-input-container">
-            <input
-              ref="fileInput"
-              type="file"
-              accept="image/*"
-              style="display: none"
-              @change="handleFileChange"
-            />
-
-            <button class="input-action-btn" aria-label="附件" @click="handleAttachment">
-              <span class="material-symbols-outlined">attachment</span>
-            </button>
-
-            <input
-              v-model="userInput"
-              type="text"
-              class="chat-input"
-              placeholder="输入您想咨询的问题..."
-              @keydown="handleInputKeydown"
-            />
-
-            <button class="send-btn" aria-label="发送" @click="handleSend">
-              <span class="material-symbols-outlined">send</span>
-            </button>
-          </div>
-
-          <p class="input-disclaimer">
-            AI 结果可能有所不同。关键分类请咨询当地指南。
-          </p>
-        </div>
+        <ChatInputPanel
+          :user-input="userInput"
+          :is-thinking="isThinking"
+          @update:userInput="(value) => (userInput = value)"
+          @send="handleSend"
+          @attachment="() => {}"
+        />
       </section>
     </div>
   </div>
@@ -792,107 +753,6 @@ onBeforeUnmount(() => {
   }
 }
 
-.chat-input-wrapper {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 24px 48px 40px;
-  background: linear-gradient(to top, var(--surface) 70%, transparent);
-  pointer-events: none;
-}
-
-.chat-input-container {
-  max-width: 900px;
-  margin: 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px;
-  border-radius: 28px;
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(46, 105, 80, 0.15);
-  box-shadow: 0 16px 40px rgba(23, 52, 36, 0.12);
-  pointer-events: auto;
-}
-
-.input-action-btn {
-  width: 40px;
-  height: 40px;
-  border: none;
-  background: transparent;
-  color: rgba(129, 189, 160, 0.8);
-  cursor: pointer;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: color 0.2s ease, background 0.2s ease;
-}
-
-.input-action-btn:hover {
-  color: var(--forest-700);
-  background: rgba(233, 244, 233, 0.5);
-}
-
-.chat-input {
-  flex: 1;
-  border: none;
-  background: transparent;
-  padding: 12px 16px;
-  font-size: 0.95rem;
-  color: var(--ink-900);
-  outline: none;
-  font-family: var(--font-body);
-}
-
-.chat-input::placeholder {
-  color: var(--ink-600);
-  opacity: 0.6;
-}
-
-.send-btn {
-  width: 44px;
-  height: 44px;
-  border: none;
-  border-radius: 50%;
-  background: linear-gradient(140deg, #214f37, #4b855e 58%, #5d9a74);
-  color: #f7fff9;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  box-shadow: 0 8px 20px rgba(31, 89, 57, 0.25);
-}
-
-.send-btn:hover {
-  transform: scale(1.05);
-  box-shadow: 0 10px 24px rgba(31, 89, 57, 0.35);
-}
-
-.send-btn:active {
-  transform: scale(0.95);
-}
-
-.send-btn .material-symbols-outlined {
-  font-size: 20px;
-  font-variation-settings: "FILL" 1;
-}
-
-.input-disclaimer {
-  margin: 12px 0 0;
-  text-align: center;
-  font-size: 0.7rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--ink-600);
-  opacity: 0.7;
-  font-family: var(--font-data);
-  pointer-events: none;
-}
-
 @media (max-width: 1024px) {
   .chat-sidebar {
     width: 240px;
@@ -900,10 +760,6 @@ onBeforeUnmount(() => {
 
   .chat-messages {
     padding: 24px 32px 160px;
-  }
-
-  .chat-input-wrapper {
-    padding: 20px 32px 32px;
   }
 }
 
@@ -934,10 +790,6 @@ onBeforeUnmount(() => {
 
   .chat-messages {
     padding: 20px 16px 160px;
-  }
-
-  .chat-input-wrapper {
-    padding: 16px 16px 24px;
   }
 
   .suggestions {
