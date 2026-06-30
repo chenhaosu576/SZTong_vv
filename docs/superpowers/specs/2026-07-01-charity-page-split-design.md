@@ -22,7 +22,7 @@ API 协议、提交/校验逻辑改动、捐赠表单字段语义调整。
 完全镜像 `AppointmentPage.vue` 拆分风格:
 
 - `components/client/appointment/` → `components/client/charity/`(新建子目录)
-- 顶层 7 个 panel + 1 个 modal
+- 顶层 8 个 panel + 1 个 modal
 - `composables/` 下新增 3 个职责单一的 composable
 - `utils/` 下新增 2 个文件:`charityConstants.js`(静态数据 + 枚举)和
   `charityValidation.js`(校验纯函数)
@@ -439,7 +439,7 @@ scoped 声明。
 
 ## 文件清单
 
-### 新增(13 个)
+### 新增(14 个)
 
 ```
 frontend/src/utils/charityConstants.js
