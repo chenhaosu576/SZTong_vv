@@ -13,7 +13,7 @@ defineEmits(["submit"]);
 
 <template>
   <div class="submit-panel">
-    <button type="submit" class="submit-btn" :disabled="submitLoading" @click="$emit('submit')">
+    <button type="button" class="submit-btn" :disabled="submitLoading" @click="$emit('submit')">
       {{ submitLoading ? "提交中..." : "确认提交预约申请" }}
     </button>
     <p class="submit-note">
