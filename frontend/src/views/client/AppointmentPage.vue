@@ -29,7 +29,9 @@ useRevealOnScroll(pageRef);
 // 1. 日期状态机
 const datePicker = useDatePicker();
 
-// 2. 时段列表:meta.periods 的一次包装,view 派生
+// 2. 时段列表:meta.periods 的一次包装,view 派生。
+//    注:必须在 useAppointmentForm 之后才求值;此处声明顺序是 computed 引用 meta 在前、
+//    meta 解构在后,实际求值发生在 onMounted(loadMeta) 时,届时 meta 已绑定。
 const availableTimeSlots = computed(() =>
   meta.periods.map((period) => ({
     value: period,
