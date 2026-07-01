@@ -21,6 +21,7 @@ import { useProfileCalendar } from "../../composables/useProfileCalendar";
 import { fetchProfileData } from "../../mock/clientApi";
 import { fetchRealDate, fetchCalendarWithOrders } from "../../mock/timeApi";
 import ProfileHeaderPanel from "../../components/client/profile/ProfileHeaderPanel.vue";
+import ProfileImpactDashboard from "../../components/client/profile/ProfileImpactDashboard.vue";
 
 const pageRef = ref(null);
 useRevealOnScroll(pageRef);
@@ -63,131 +64,8 @@ function handleCalendarReady(el) {
   setCalendarSectionRef(el);
 }
 
-// 周期 tabs (由 ProfileImpactDashboard 接管，此处仅作占位)
 const selectedPeriod = ref('本月'); // 本周, 本月, 季度
 
-// 环境足迹数据 - 根据周期动态变化
-const energyData = computed(() => {
-  if (selectedPeriod.value === '本周') {
-    return {
-      value: 458,
-      unit: 'kWh',
-      trend: '+5.2%',
-      chartType: 'bar',
-      bars: generateRandomBars(7),
-      labels: ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
-    };
-  } else if (selectedPeriod.value === '本月') {
-    return {
-      value: 1842,
-      unit: 'kWh',
-      trend: '+8.3%',
-      chartType: 'bar',
-      bars: generateRandomBars(30),
-      labels: Array.from({ length: 30 }, (_, i) => `${i + 1}日`)
-    };
-  } else { // 季度
-    return {
-      value: 5526,
-      unit: 'kWh',
-      trend: '+12.1%',
-      chartType: 'line',
-      points: generateLineChartPoints(12),
-      labels: ['第1周', '第2周', '第3周', '第4周', '第5周', '第6周', '第7周', '第8周', '第9周', '第10周', '第11周', '第12周']
-    };
-  }
-});
-
-const co2Data = computed(() => {
-  if (selectedPeriod.value === '本周') {
-    return {
-      value: 12.4,
-      unit: 'kg',
-      trend: '+3.8%',
-      chartType: 'bar',
-      bars: generateRandomBars(7),
-      labels: ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
-    };
-  } else if (selectedPeriod.value === '本月') {
-    return {
-      value: 48.6,
-      unit: 'kg',
-      trend: '+6.5%',
-      chartType: 'bar',
-      bars: generateRandomBars(30),
-      labels: Array.from({ length: 30 }, (_, i) => `${i + 1}日`)
-    };
-  } else { // 季度
-    return {
-      value: 145.8,
-      unit: 'kg',
-      trend: '+9.7%',
-      chartType: 'line',
-      points: generateLineChartPoints(12),
-      labels: ['第1周', '第2周', '第3周', '第4周', '第5周', '第6周', '第7周', '第8周', '第9周', '第10周', '第11周', '第12周']
-    };
-  }
-});
-
-// 悬停的柱子或数据点索引
-const hoveredBarIndex = ref(null);
-const hoveredPointIndex = ref(null);
-
-// 生成随机柱状图数据
-function generateRandomBars(count) {
-  const bars = [];
-  const activeCount = Math.floor(count * 0.3); // 30%的柱子是active
-  const activeIndices = new Set();
-  
-  // 随机选择active的柱子索引
-  while (activeIndices.size < activeCount) {
-    activeIndices.add(Math.floor(Math.random() * count));
-  }
-  
-  for (let i = 0; i < count; i++) {
-    const height = Math.floor(Math.random() * 60) + 40; // 40-100%
-    const active = activeIndices.has(i);
-    bars.push({
-      height,
-      active,
-      value: active ? Math.floor(height * 0.8) : Math.floor(height * 0.5) // active的值更高
-    });
-  }
-  
-  return bars;
-}
-
-// 生成折线图数据点
-function generateLineChartPoints(count) {
-  const points = [];
-  let lastValue = 50;
-  
-  for (let i = 0; i < count; i++) {
-    // 生成波动的数据，保持趋势
-    const change = (Math.random() - 0.3) * 20; // 略微上升趋势
-    lastValue = Math.max(30, Math.min(100, lastValue + change));
-    const yPercent = 100 - lastValue;
-    points.push({
-      x: (i / (count - 1)) * 100, // 0-100%
-      y: yPercent, // 翻转Y轴，因为CSS中top是从上往下
-      value: Math.floor(lastValue) // 实际数值
-    });
-  }
-  
-  return points;
-}
-
-// 生成SVG路径
-function generateLinePath(points) {
-  if (points.length === 0) return '';
-  
-  let path = `M ${points[0].x} ${points[0].y}`;
-  for (let i = 1; i < points.length; i++) {
-    path += ` L ${points[i].x} ${points[i].y}`;
-  }
-  
-  return path;
-}
 
 // 计算等级进度百分比
 const levelProgress = computed(() => {
@@ -333,200 +211,12 @@ onMounted(loadProfile);
         </div>
       </section>
 
-      <!-- Impact Dashboard -->
-      <section class="impact-dashboard">
-        <div class="section-header">
-          <h2 class="section-title">环境足迹</h2>
-          <div class="period-tabs">
-            <button 
-              :class="['tab', { active: selectedPeriod === '本周' }]"
-              @click="selectedPeriod = '本周'"
-            >本周</button>
-            <button 
-              :class="['tab', { active: selectedPeriod === '本月' }]"
-              @click="selectedPeriod = '本月'"
-            >本月</button>
-            <button 
-              :class="['tab', { active: selectedPeriod === '季度' }]"
-              @click="selectedPeriod = '季度'"
-            >季度</button>
-          </div>
-        </div>
-        <div class="metrics-grid">
-          <!-- Metric 1: Energy Saved -->
-          <div class="metric-card">
-            <div class="metric-header">
-              <span class="metric-label">已节约能源</span>
-              <span class="metric-trend">
-                <span class="trend-icon">↑</span>{{ energyData.trend }}
-              </span>
-            </div>
-            <div class="metric-value">
-              {{ energyData.value }} <span class="metric-unit">{{ energyData.unit }}</span>
-            </div>
-            <!-- 柱状图 -->
-            <div v-if="energyData.chartType === 'bar'" class="mini-chart">
-              <div 
-                v-for="(bar, index) in energyData.bars" 
-                :key="index"
-                class="bar" 
-                :class="{ active: bar.active, hovered: hoveredBarIndex === index }"
-                :style="{ height: bar.height + '%' }"
-                @mouseenter="hoveredBarIndex = index"
-                @mouseleave="hoveredBarIndex = null"
-              >
-                <div v-if="hoveredBarIndex === index" class="bar-tooltip">
-                  <div class="tooltip-label">{{ energyData.labels[index] }}</div>
-                  <div class="tooltip-value">{{ bar.value }} kWh</div>
-                </div>
-              </div>
-            </div>
-            <!-- 折线图 -->
-            <div v-else class="line-chart">
-              <svg viewBox="0 0 100 100" preserveAspectRatio="none">
-                <!-- 渐变填充区域 -->
-                <defs>
-                  <linearGradient id="energyGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" style="stop-color:#006418;stop-opacity:0.2" />
-                    <stop offset="100%" style="stop-color:#006418;stop-opacity:0" />
-                  </linearGradient>
-                </defs>
-                <!-- 填充区域 -->
-                <path
-                  :d="generateLinePath(energyData.points) + ' L 100 100 L 0 100 Z'"
-                  fill="url(#energyGradient)"
-                />
-                <!-- 折线 -->
-                <path
-                  :d="generateLinePath(energyData.points)"
-                  fill="none"
-                  stroke="#006418"
-                  stroke-width="2"
-                  vector-effect="non-scaling-stroke"
-                />
-                <!-- 数据点 -->
-                <circle
-                  v-for="(point, index) in energyData.points"
-                  :key="index"
-                  :cx="point.x"
-                  :cy="point.y"
-                  :r="hoveredPointIndex === index ? 4 : 2"
-                  :fill="hoveredPointIndex === index ? '#2a6b2c' : '#006418'"
-                  @mouseenter="hoveredPointIndex = index"
-                  @mouseleave="hoveredPointIndex = null"
-                  style="cursor: pointer; transition: all 0.2s;"
-                />
-              </svg>
-              <!-- 折线图提示 -->
-              <div 
-                v-if="hoveredPointIndex !== null" 
-                class="line-tooltip"
-                :style="{
-                  left: energyData.points[hoveredPointIndex].x + '%',
-                  top: energyData.points[hoveredPointIndex].y + '%'
-                }"
-              >
-                <div class="tooltip-label">{{ energyData.labels[hoveredPointIndex] }}</div>
-                <div class="tooltip-value">{{ energyData.points[hoveredPointIndex].value }} kWh</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Metric 2: CO2 Reduced -->
-          <div class="metric-card">
-            <div class="metric-header">
-              <span class="metric-label">减少二氧化碳</span>
-              <span class="metric-trend">
-                <span class="trend-icon">↑</span>{{ co2Data.trend }}
-              </span>
-            </div>
-            <div class="metric-value">
-              {{ co2Data.value }} <span class="metric-unit">{{ co2Data.unit }}</span>
-            </div>
-            <!-- 柱状图 -->
-            <div v-if="co2Data.chartType === 'bar'" class="mini-chart">
-              <div 
-                v-for="(bar, index) in co2Data.bars" 
-                :key="index"
-                class="bar" 
-                :class="{ active: bar.active, hovered: hoveredBarIndex === index }"
-                :style="{ height: bar.height + '%' }"
-                @mouseenter="hoveredBarIndex = index"
-                @mouseleave="hoveredBarIndex = null"
-              >
-                <div v-if="hoveredBarIndex === index" class="bar-tooltip">
-                  <div class="tooltip-label">{{ co2Data.labels[index] }}</div>
-                  <div class="tooltip-value">{{ (bar.value * 0.15).toFixed(1) }} kg</div>
-                </div>
-              </div>
-            </div>
-            <!-- 折线图 -->
-            <div v-else class="line-chart">
-              <svg viewBox="0 0 100 100" preserveAspectRatio="none">
-                <!-- 渐变填充区域 -->
-                <defs>
-                  <linearGradient id="co2Gradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" style="stop-color:#006418;stop-opacity:0.2" />
-                    <stop offset="100%" style="stop-color:#006418;stop-opacity:0" />
-                  </linearGradient>
-                </defs>
-                <!-- 填充区域 -->
-                <path
-                  :d="generateLinePath(co2Data.points) + ' L 100 100 L 0 100 Z'"
-                  fill="url(#co2Gradient)"
-                />
-                <!-- 折线 -->
-                <path
-                  :d="generateLinePath(co2Data.points)"
-                  fill="none"
-                  stroke="#006418"
-                  stroke-width="2"
-                  vector-effect="non-scaling-stroke"
-                />
-                <!-- 数据点 -->
-                <circle
-                  v-for="(point, index) in co2Data.points"
-                  :key="index"
-                  :cx="point.x"
-                  :cy="point.y"
-                  :r="hoveredPointIndex === index ? 4 : 2"
-                  :fill="hoveredPointIndex === index ? '#2a6b2c' : '#006418'"
-                  @mouseenter="hoveredPointIndex = index"
-                  @mouseleave="hoveredPointIndex = null"
-                  style="cursor: pointer; transition: all 0.2s;"
-                />
-              </svg>
-              <!-- 折线图提示 -->
-              <div 
-                v-if="hoveredPointIndex !== null" 
-                class="line-tooltip"
-                :style="{
-                  left: co2Data.points[hoveredPointIndex].x + '%',
-                  top: co2Data.points[hoveredPointIndex].y + '%'
-                }"
-              >
-                <div class="tooltip-label">{{ co2Data.labels[hoveredPointIndex] }}</div>
-                <div class="tooltip-value">{{ (co2Data.points[hoveredPointIndex].value * 0.15).toFixed(1) }} kg</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Metric 3: Points -->
-          <div class="metric-card">
-            <div class="metric-header">
-              <span class="metric-label">当前累计积分</span>
-              <span class="metric-rank">月度排行 #42</span>
-            </div>
-            <div class="metric-value points">
-              {{ profile.points }} <span class="metric-unit">pts</span>
-            </div>
-            <div class="rewards-banner">
-              <span class="rewards-icon">🎁</span>
-              <span class="rewards-text">您有 2 个可兑换奖励</span>
-            </div>
-          </div>
-        </div>
-      </section>
+      <!-- Impact Dashboard: 已迁入 ProfileImpactDashboard -->
+      <ProfileImpactDashboard
+        :points="profile.points"
+        :selected-period="selectedPeriod"
+        @update:selected-period="selectedPeriod = $event"
+      />
 
       <!-- Tasks and Achievements Grid -->
       <div class="tasks-achievements-grid">
@@ -708,259 +398,7 @@ onMounted(loadProfile);
   margin: 0 auto;
   padding: 4rem 2rem;
 }
-/* Profile Header */
 
-/* Impact Dashboard */
-.impact-dashboard {
-  margin-bottom: 6rem;
-}
-
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: 3rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid rgba(64, 73, 61, 0.1);
-}
-
-.section-title {
-  font-size: 1.875rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-
-.period-tabs {
-  display: flex;
-  gap: 2rem;
-}
-
-.tab {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: #40493d;
-  background: none;
-  border: none;
-  padding-bottom: 0.5rem;
-  cursor: pointer;
-  transition: all 0.3s;
-  border-bottom: 2px solid transparent;
-}
-
-.tab.active {
-  font-weight: 700;
-  color: #006418;
-  border-bottom-color: #006418;
-}
-
-.tab:hover:not(.active) {
-  color: #1a1c19;
-}
-
-.metrics-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 4rem;
-  align-items: flex-end;
-}
-
-.metric-card {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.metric-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.metric-label {
-  color: #40493d;
-  font-weight: 500;
-}
-
-.metric-trend {
-  color: #006418;
-  font-size: 0.75rem;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.metric-rank {
-  color: #40493d;
-  font-size: 0.75rem;
-  font-weight: 500;
-}
-
-.metric-value {
-  font-size: 3.75rem;
-  font-weight: 900;
-  letter-spacing: -0.05em;
-}
-
-.metric-value.points {
-  color: #006418;
-}
-
-.metric-unit {
-  font-size: 1.25rem;
-  font-weight: 500;
-  color: #40493d;
-  margin-left: 0.25rem;
-}
-
-.mini-chart {
-  height: 6rem;
-  display: flex;
-  align-items: flex-end;
-  gap: 0.375rem;
-  position: relative;
-}
-
-.mini-chart .bar {
-  flex: 1;
-  background: #eeeee9;
-  border-radius: 0.125rem 0.125rem 0 0;
-  transition: all 0.3s;
-  position: relative;
-  cursor: pointer;
-}
-
-.mini-chart .bar:hover {
-  opacity: 0.8;
-}
-
-.mini-chart .bar.active {
-  background: #006418;
-}
-
-.mini-chart .bar.hovered {
-  transform: scaleY(1.05);
-  filter: brightness(1.1);
-}
-
-.bar-tooltip {
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  margin-bottom: 0.5rem;
-  padding: 0.375rem 0.625rem;
-  background: linear-gradient(135deg, #2f5f43, #006418);
-  color: white;
-  border-radius: 6px;
-  white-space: nowrap;
-  box-shadow: 0 4px 12px rgba(0, 100, 24, 0.3);
-  z-index: 100;
-  animation: tooltipFadeIn 0.2s ease;
-  pointer-events: none;
-}
-
-.bar-tooltip::after {
-  content: '';
-  position: absolute;
-  top: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 0;
-  height: 0;
-  border-left: 5px solid transparent;
-  border-right: 5px solid transparent;
-  border-top: 5px solid #006418;
-}
-
-.tooltip-label {
-  font-size: 0.625rem;
-  opacity: 0.9;
-  margin-bottom: 0.125rem;
-}
-
-.tooltip-value {
-  font-size: 0.875rem;
-  font-weight: 700;
-}
-
-@keyframes tooltipFadeIn {
-  from {
-    opacity: 0;
-    transform: translateX(-50%) translateY(-5px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-  }
-}
-
-.line-chart {
-  height: 6rem;
-  width: 100%;
-  position: relative;
-}
-
-.line-chart svg {
-  width: 100%;
-  height: 100%;
-}
-
-.line-chart path {
-  transition: stroke-dashoffset 0.5s ease;
-}
-
-.line-chart circle {
-  transition: all 0.3s ease;
-}
-
-.line-tooltip {
-  position: absolute;
-  transform: translate(-50%, -120%);
-  padding: 0.375rem 0.625rem;
-  background: linear-gradient(135deg, #2f5f43, #006418);
-  color: white;
-  border-radius: 6px;
-  white-space: nowrap;
-  box-shadow: 0 4px 12px rgba(0, 100, 24, 0.3);
-  z-index: 100;
-  animation: tooltipFadeIn 0.2s ease;
-  pointer-events: none;
-}
-
-.line-tooltip::after {
-  content: '';
-  position: absolute;
-  top: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 0;
-  height: 0;
-  border-left: 5px solid transparent;
-  border-right: 5px solid transparent;
-  border-top: 5px solid #006418;
-}
-
-.rewards-banner {
-  height: 6rem;
-  display: flex;
-  align-items: center;
-  padding: 1.25rem;
-  background: rgba(0, 100, 24, 0.05);
-  border-radius: 1rem;
-  gap: 1rem;
-  border: 1px solid rgba(0, 100, 24, 0.1);
-}
-
-.rewards-icon {
-  font-size: 1.5rem;
-}
-
-.rewards-text {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #006418;
-}
 
 /* Calendar Section */
 .calendar-section {
@@ -1606,12 +1044,6 @@ onMounted(loadProfile);
 @media (max-width: 1024px) {
 
 
-
-  .metrics-grid {
-    grid-template-columns: 1fr;
-    gap: 3rem;
-  }
-
   .tasks-achievements-grid {
     grid-template-columns: 1fr;
     gap: 4rem;
@@ -1622,8 +1054,6 @@ onMounted(loadProfile);
   .profile-content {
     padding: 2rem 1rem;
   }
-
-
 
 
   .section-header {
@@ -1656,7 +1086,6 @@ onMounted(loadProfile);
   }
 
 
-
 }
 
 /* Animations */
@@ -1672,18 +1101,12 @@ onMounted(loadProfile);
 }
 
 
-
 .calendar-section {
   animation: fadeInUp 0.5s ease forwards;
   animation-delay: 0.1s;
   opacity: 0;
 }
 
-.impact-dashboard {
-  animation: fadeInUp 0.5s ease forwards;
-  animation-delay: 0.2s;
-  opacity: 0;
-}
 
 .tasks-achievements-grid {
   animation: fadeInUp 0.5s ease forwards;
