@@ -1,6 +1,8 @@
 <script setup>
 import { computed, onMounted, ref, onBeforeUnmount, useTemplateRef } from "vue";
 import { useRevealOnScroll } from "../../composables/useRevealOnScroll";
+import { useProfileCheckIn } from "../../composables/useProfileCheckIn";
+import { useProfileCalendar } from "../../composables/useProfileCalendar";
 import { fetchProfileData } from "../../mock/clientApi";
 import { fetchRealDate, fetchCalendarWithOrders } from "../../mock/timeApi";
 
@@ -11,25 +13,47 @@ const loading = ref(true);
 const errorText = ref("");
 const profile = ref(null);
 
-// 当前选中的月份
-const currentMonth = ref(new Date());
+const {
+  streakDays,
+  guardianDays,
+  hasCheckedInToday,
+  isStreakAnimating,
+  isGuardianDaysUpdating,
+  showCheckInAlert,
+  checkTodayCheckIn,
+  triggerCheckIn,
+  resetCheckInForTesting,
+} = useProfileCheckIn();
+
+const {
+  calendarDays,
+  highlightedDay,
+  monthText,
+  calendarSectionRef,
+  setCalendarSectionRef,
+  initializeCalendar,
+  changeMonth,
+  highlightToday,
+} = useProfileCalendar();
+
+async function handleCheckIn() {
+  const result = triggerCheckIn();
+  if (result?.checkedIn) {
+    await highlightToday();
+  }
+}
+
+function handleCalendarReady(el) {
+  setCalendarSectionRef(el);
+}
+
+// 周期 tabs (由 ProfileImpactDashboard 接管，此处仅作占位)
 const selectedPeriod = ref('本月'); // 本周, 本月, 季度
 
-// 日历数据
-const calendarDays = ref([]);
-const orderMap = ref({}); // 订单映射
-
-// 连续打卡数据
-const streakDays = ref(42); // 连续打卡天数
-const totalRecycles = ref(156); // 总回收次数
-const streakRecord = ref(58); // 最长连续记录
-const isStreakAnimating = ref(false);
-const hasCheckedInToday = ref(false); // 今日是否已打卡
-const showCheckInAlert = ref(false); // 显示打卡提示弹窗
-
-// 守护天数 - 从localStorage读取，默认365
-const guardianDays = ref(parseInt(localStorage.getItem('guardianDays')) || 365);
-const isGuardianDaysUpdating = ref(false);
+// 日历 / 打卡 / 守护天数状态由 useProfileCheckIn + useProfileCalendar 持有
+// （calendarDays / orderMap / currentMonth / calendarSectionRef / highlightedDay
+//  / streakDays / totalRecycles / streakRecord / isStreakAnimating / hasCheckedInToday
+//  / showCheckInAlert / guardianDays / isGuardianDaysUpdating）
 
 // 瓶子悬停状态
 const isBottleHovered = ref(false);
@@ -194,197 +218,29 @@ function handleAvatarChange(event) {
   reader.readAsDataURL(file);
 }
 
-// 检查今日是否已打卡
-function checkTodayCheckIn() {
-  const lastCheckInDate = localStorage.getItem('lastCheckInDate');
-  const today = new Date().toDateString();
-  
-  if (lastCheckInDate === today) {
-    hasCheckedInToday.value = true;
-  } else {
-    hasCheckedInToday.value = false;
-  }
-}
-
-// 趋势图表数据
-const trendPeriod = ref('3个月'); // 3个月, 半年, 一年
-
-// 日历相关
-const calendarSectionRef = ref(null);
-const highlightedDay = ref(null);
-
-// 打卡动画触发
-function triggerStreakAnimation() {
-  // 检查今日是否已打卡
-  if (hasCheckedInToday.value) {
-    showCheckInAlert.value = true;
-    setTimeout(() => {
-      showCheckInAlert.value = false;
-    }, 3000);
-    return;
-  }
-
-  // 执行打卡
-  isStreakAnimating.value = true;
-  setTimeout(() => {
-    isStreakAnimating.value = false;
-  }, 1000);
-  
-  // 增加守护天数并触发动画
-  isGuardianDaysUpdating.value = true;
-  guardianDays.value++;
-  
-  // 保存守护天数到localStorage
-  localStorage.setItem('guardianDays', guardianDays.value.toString());
-  
-  setTimeout(() => {
-    isGuardianDaysUpdating.value = false;
-  }, 600);
-  
-  // 记录打卡日期
-  const today = new Date().toDateString();
-  localStorage.setItem('lastCheckInDate', today);
-  hasCheckedInToday.value = true;
-  
-  // 滚动到日历并高亮今天
-  scrollToCalendarAndHighlight();
-}
-
-// 测试用：恢复打卡状态
-function resetCheckInForTesting() {
-  localStorage.removeItem('lastCheckInDate');
-  hasCheckedInToday.value = false;
-  console.log('打卡状态已重置，可以重新打卡了');
-}
-
-// 滚动到日历并高亮今天的日期
-async function scrollToCalendarAndHighlight() {
-  // 等待动画完成
-  await new Promise(resolve => setTimeout(resolve, 300));
-  
-  // 平滑滚动到日历部分
-  if (calendarSectionRef.value) {
-    calendarSectionRef.value.scrollIntoView({ 
-      behavior: 'smooth', 
-      block: 'center' 
-    });
-  }
-  
-  // 等待滚动完成后高亮今天
-  await new Promise(resolve => setTimeout(resolve, 800));
-  
-  // 找到今天的日期索引
-  const todayIndex = calendarDays.value.findIndex(day => day.isToday);
-  if (todayIndex !== -1) {
-    highlightedDay.value = todayIndex;
-    
-    // 如果今天还没有活动，设置为轻度活动
-    if (calendarDays.value[todayIndex].intensity === 0) {
-      calendarDays.value[todayIndex].intensity = 1;
-      calendarDays.value[todayIndex].emission = 2.5;
-    }
-    
-    // 3秒后取消高亮
-    setTimeout(() => {
-      highlightedDay.value = null;
-    }, 3000);
-  }
-}
-
-// 生成日历数据
-function generateCalendar() {
-  const days = [];
-  const year = currentMonth.value.getFullYear();
-  const month = currentMonth.value.getMonth();
-
-  // 获取当月第一天是星期几（0=周日，需要转换为1=周一）
-  const firstDay = new Date(year, month, 1).getDay();
-  const firstDayAdjusted = firstDay === 0 ? 6 : firstDay - 1;
-
-  // 获取当月天数
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-  // 添加空白天
-  for (let i = 0; i < firstDayAdjusted; i++) {
-    days.push({ empty: true });
-  }
-
-  // 添加当月天数
-  for (let day = 1; day <= daysInMonth; day++) {
-    const date = new Date(year, month, day);
-    const orders = orderMap.value[day] || [];
-    const hasActivity = orders.length > 0;
-    const intensity = hasActivity ? Math.min(orders.length, 3) : 0;
-
-    days.push({
-      date: date.toISOString().split('T')[0],
-      day,
-      month: month + 1,
-      year,
-      intensity, // 0=无活动, 1=轻度, 2=中度, 3=显著
-      emission: intensity * (Math.random() * 4 + 2),
-      isToday: date.toDateString() === new Date().toDateString()
-    });
-  }
-
-  calendarDays.value = days;
-}
-
-// 切换月份
-async function changeMonth(offset) {
-  const newMonth = new Date(currentMonth.value);
-  newMonth.setMonth(newMonth.getMonth() + offset);
-  currentMonth.value = newMonth;
-
-  // 获取新月份的订单
-  const year = newMonth.getFullYear();
-  const month = newMonth.getMonth();
-  orderMap.value = await fetchCalendarWithOrders(year, month);
-
-  generateCalendar();
-}
-
-// 获取月份显示文本
-const monthText = computed(() => {
-  const year = currentMonth.value.getFullYear();
-  const month = currentMonth.value.getMonth() + 1;
-  return `${year}年 ${month}月`;
-});
-
 // 计算等级进度百分比
 const levelProgress = computed(() => {
-  if (!profile.value) return 70;
-  // 假设当前积分8240，下一级需要8690（450积分差距）
-  return 70; // 示例值
+  const points = profile.value?.points ?? 0;
+  return Math.min(100, Math.max(0, (points % 1000) / 10));
 });
 
 async function loadProfile() {
   loading.value = true;
   errorText.value = "";
   try {
-    // 并行执行所有 API 请求
-    const [profileData, realDate, ordersData] = await Promise.all([
+    const [profileData, realDate] = await Promise.all([
       fetchProfileData(),
       fetchRealDate(),
-      fetchCalendarWithOrders(
-        new Date().getFullYear(),
-        new Date().getMonth()
-      )
     ]);
+    const calendarDate = realDate || {
+      year: new Date().getFullYear(),
+      month: new Date().getMonth(),
+      day: new Date().getDate(),
+    };
+    const ordersData = await fetchCalendarWithOrders(calendarDate.year, calendarDate.month);
 
     profile.value = profileData;
-
-    // 获取真实日期
-    if (realDate) {
-      currentMonth.value = new Date(realDate.year, realDate.month, 1);
-    } else {
-      currentMonth.value = new Date();
-    }
-
-    // 获取当月订单
-    orderMap.value = ordersData;
-
-    generateCalendar();
+    initializeCalendar(calendarDate, ordersData);
     checkTodayCheckIn();
   } catch (error) {
     errorText.value = "个人信息加载失败，请稍后重试。";
@@ -568,10 +424,10 @@ onBeforeUnmount(() => {
                 <div class="streak-number-compact">{{ streakDays }}</div>
                 <div class="streak-label-compact">天连续打卡</div>
               </div>
-              <button 
-                class="compact-streak-btn" 
+              <button
+                class="compact-streak-btn"
                 :class="{ 'checked-in': hasCheckedInToday }"
-                @click="triggerStreakAnimation"
+                @click="handleCheckIn"
               >
                 <span class="btn-icon-small">✓</span>
               </button>
