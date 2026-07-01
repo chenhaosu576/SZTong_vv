@@ -1,16 +1,12 @@
 <!--
   ProfilePage.vue
   个人中心主页 (薄编排层):
-    1) 持有 loading / errorText / profile 三个 ref + loadProfile async (inline 原 useProfileData 职责)
-    2) 组合 useProfileCheckIn (打卡) + useProfileCalendar (日历) 两个 composable
-    3) 挂载 5 个 panel: ProfileHeaderPanel / ProfileCheckInAlert / ProfileCalendarSection
-       / ProfileImpactDashboard / ProfileBottomSectionsPanel
-    4) 持有 PROFILE_TASKS / PROFILE_ACHIEVEMENTS / PROFILE_ACTIVITIES 三个静态常量
-       (传给 ProfileBottomSectionsPanel)
-    5) 派生 levelProgress computed (来自 profile.points)
-    6) 页面级 reveal 滚动 (useRevealOnScroll)
-  本文件不做: 头像 / 等级瓶子 / blur text / streak card / 图表数据 / 日历格子 / 任务 /
-              成就 / 动态 模板 (全部由 panel 承担); 不再持有 avatar / bottle / blur / chart 相关 state。
+    持有 loading / errorText / profile 三态 ref + loadProfile async
+    (inline 原 useProfileData 职责); 组合 2 个 composable
+    (useProfileCheckIn / useProfileCalendar) 与 5 个 panel
+    (Header / CheckInAlert / Calendar / ImpactDashboard / BottomSections);
+    持有 3 个静态常量 (PROFILE_TASKS / ACHIEVEMENTS / ACTIVITIES);
+    派生 levelProgress computed; 走 useRevealOnScroll 页面级 reveal。
 -->
 
 <script setup>
@@ -69,7 +65,6 @@ function handleCalendarReady(el) {
 
 const selectedPeriod = ref('本月'); // 本周, 本月, 季度
 
-// 计算等级进度百分比
 const levelProgress = computed(() => {
   const points = profile.value?.points ?? 0;
   return Math.min(100, Math.max(0, (points % 1000) / 10));
@@ -102,7 +97,6 @@ async function loadProfile() {
 
 onMounted(loadProfile);
 
-// 静态任务 / 成就 / 动态数据 (传给 ProfileBottomSectionsPanel)
 const PROFILE_TASKS = [
   { name: "废纸回收挑战", progressText: "6.0 / 10 kg", progress: 60, reward: "完成后可获得 200 积分" },
   { name: "低碳出行达人", progressText: "12 / 20 次", progress: 40, reward: "完成后可获得 150 积分" },
@@ -137,7 +131,6 @@ const PROFILE_ACTIVITIES = [
     </div>
 
     <div v-else class="profile-content">
-      <!-- Header Section: 已迁入 ProfileHeaderPanel (avatar + blur text + bottle + streak card) -->
       <ProfileHeaderPanel
         :profile="profile"
         :guardian-days="guardianDays"
@@ -151,10 +144,8 @@ const PROFILE_ACTIVITIES = [
         @reset-check-in="resetCheckInForTesting"
       />
 
-      <!-- Check-in Alert Modal: 已迁入 ProfileCheckInAlert -->
       <ProfileCheckInAlert :visible="showCheckInAlert" />
 
-      <!-- Calendar Section: 已迁入 ProfileCalendarSection -->
       <ProfileCalendarSection
         :calendar-days="calendarDays"
         :month-text="monthText"
@@ -163,14 +154,12 @@ const PROFILE_ACTIVITIES = [
         @change-month="changeMonth"
       />
 
-      <!-- Impact Dashboard: 已迁入 ProfileImpactDashboard -->
       <ProfileImpactDashboard
         :points="profile.points"
         :selected-period="selectedPeriod"
         @update:selected-period="selectedPeriod = $event"
       />
 
-      <!-- Tasks / Achievements / Recent Activity: 已迁入 ProfileBottomSectionsPanel -->
       <ProfileBottomSectionsPanel
         :tasks="PROFILE_TASKS"
         :achievements="PROFILE_ACHIEVEMENTS"
