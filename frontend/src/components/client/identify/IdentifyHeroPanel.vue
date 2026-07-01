@@ -104,6 +104,11 @@ const isSingle = () => props.recognitionMode === "single";
 </template>
 
 <style scoped>
+button {
+  appearance: none;
+  border: 0;
+}
+
 .hero-panel {
   position: relative;
   display: grid;

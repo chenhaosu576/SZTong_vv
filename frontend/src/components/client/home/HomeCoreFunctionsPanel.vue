@@ -312,7 +312,11 @@ onMounted(() => {
   background: linear-gradient(135deg, rgba(79, 141, 96, 0.15) 0%, rgba(79, 141, 96, 0.1) 100%);
 }
 
-.function-card--charity {
+.function-card--tertiary .icon-glow {
+  background: radial-gradient(circle, rgba(79, 141, 96, 0.4) 0%, transparent 70%);
+}
+
+.function-card-icon--charity {
   background: linear-gradient(135deg, rgba(119, 218, 16, 0.15) 0%, rgba(119, 218, 16, 0.1) 100%);
 }
 
