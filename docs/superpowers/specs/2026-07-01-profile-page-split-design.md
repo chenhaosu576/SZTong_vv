@@ -7,7 +7,7 @@
 
 ## 背景与目标
 
-`frontend/src/views/client/ProfilePage.vue` 当前约 2619 行，把页面编排、资料加载、头像上传、连续打卡、守护天数动画、减排日历、环境足迹图表、任务成就、最近动态以及大量 scoped CSS 全部放在一个 SFC 中。这个文件已经不适合作为后续迭代入口。
+`frontend/src/views/client/ProfilePage.vue` 当前约 2958 行，把页面编排、资料加载、头像上传、连续打卡、守护天数动画、减排日历、环境足迹图表、任务成就、最近动态以及大量 scoped CSS 全部放在一个 SFC 中。这个文件已经不适合作为后续迭代入口。
 
 本次拆分目标是让 `ProfilePage.vue` 变成薄编排层，预计降到约 160-230 行，只保留加载/错误状态、页面级 reveal、组合各子组件、连接 composables 与 UI 事件。UI 结构进入 `components/client/profile/`，页面业务状态进入 `composables/useProfile*.js`。
 
@@ -98,6 +98,9 @@ Emits:
 - `avatar-change`
 - `check-in`
 - `reset-check-in`
+- `blur-ready`
+
+`blur-ready(el)` 在 profile message DOM mounted 后触发，把真实 DOM 交给页面或 `useBlurText.setBlurTextRef(el)`。不要只把 `blurTextRef` 留在页面里，因为 blur text markup 拆入 Header 后，页面无法直接拿到内部 DOM。
 
 ### `ProfileLevelBottle.vue`
 
@@ -212,9 +215,9 @@ Props:
 - `errorText`
 - `profile`
 - `loadProfile()`
-- 并行调用 `fetchProfileData()`、`fetchRealDate()`、`fetchCalendarWithOrders()`。
+- 调用 `fetchProfileData()`、`fetchRealDate()`、`fetchCalendarWithOrders()`。
 
-返回初始日历所需的 `realDate` 和 `ordersData`，由页面传给 `useProfileCalendar` 初始化，或由 composable 接受 callbacks。推荐让 `useProfileData` 只管数据加载，不生成日历格子。
+初始日历的订单月份必须和 `realDate` 同源：先获得 `realDate`，再用 `realDate.year` 和 `realDate.month` 拉取 `fetchCalendarWithOrders(year, month)`；如果后续为了性能并行请求，也必须在返回值中带上 `ordersYear` / `ordersMonth` 并保证传给 `initializeCalendar` 的月份一致。推荐让 `useProfileData` 只管数据加载，不生成日历格子。
 
 建议接口:
 
@@ -309,6 +312,7 @@ Storage keys:
 - `blurTextRef`
 - `blurTextInView`
 - `blurTextElements`
+- `setBlurTextRef(el)`
 - IntersectionObserver 创建和清理。
 
 输入:
@@ -320,6 +324,7 @@ Storage keys:
 
 - 字符数组 `{ char, isHighlighted }`
 - 是否进入视口。
+- `setBlurTextRef(el)`，供渲染 blur text 的组件把真实 DOM 注册给 observer。
 
 该 composable 可先保持通用命名 `useBlurText`，因为 blur text 不是 profile 独有；但当前只有 Profile 使用，不要过度扩展 API。
 
@@ -341,6 +346,7 @@ Storage keys:
   :is-streak-animating="isStreakAnimating"
   @avatar-change="handleAvatarChange"
   @check-in="handleCheckIn"
+  @blur-ready="setBlurTextRef"
 />
 
 <ProfileCheckInAlert :visible="showCheckInAlert" />
