@@ -12,10 +12,10 @@
 
 `frontend/src/views/client/HomePage.vue` 当前 1785 行,模板 / 脚本 / CSS
 全部塞在一个文件里,涵盖 hero 区、核心功能区(4 张 3D 卡)、品牌使命区、4 张
-资讯堆叠卡四项视觉单元,以及首页数据加载、登录态同步、hero 描述打字机、
-4 张功能卡 3D 倾斜、资讯堆叠滚动计算、主页级响应式断点等多项业务关注点。
-本次目标是把 home page 拆成与 charity page 同构的形态:view 编排、状态/逻
-辑进 composable、UI 切 panel。
+资讯堆叠卡四项视觉单元,以及首页数据加载、hero 描述打字机、4 张功能卡 3D
+倾斜、资讯堆叠滚动计算、主页级响应式断点等多项业务关注点。本次目标是
+把 home page 拆成与 charity page 同构的形态:view 编排、状态/逻辑进
+composable、UI 切 panel。
 
 **不在范围**:UI 视觉调整、动效改写、CSS 视觉回归修复、新增字段、改 mock
 API 协议、打字机/滚动堆叠算法改动、3D 倾斜参数改动。
@@ -25,7 +25,7 @@ API 协议、打字机/滚动堆叠算法改动、3D 倾斜参数改动。
 完全镜像 `CharityPage.vue` 拆分风格:
 
 - `components/client/home/` 子目录(新建),承载 4 个 panel + 1 个 card 子组件
-- `composables/` 下新增 5 个职责单一的 composable
+- `composables/` 下新增 4 个职责单一的 composable
 - `utils/` 下新增 1 个静态常量文件 `homeNewsConstants.js`
 - `utils/homePageContent.js` 删除(整文件已无引用,见"配套清理")
 - `HomePage.vue` 自身 1785 → ~80 行,只做编排 + 主页级响应式 + 加载/错误状态
@@ -39,8 +39,7 @@ frontend/src/components/client/home/
   HomeNewsPanel.vue             资讯堆叠滚动区(4 张堆叠卡)
 
 frontend/src/composables/
-  useHomeData.js                loading / loadError / home reactive + loadHome()
-  useLoginSync.js               isLoggedIn ref + storage 事件订阅/退订
+  useHomeData.js                loading / loadError / home ref + loadHome()
   useTypewriter.js              text ref + start(text) / stop() + reduced-motion 检测
   useTilt3D.js                  4 张卡片的 3D 倾斜(cardRefs / hoverStates / 事件 handler)
   useScrollStack.js             资讯堆叠滚动 transform 计算 + rAF + will-change 初始化
@@ -49,13 +48,17 @@ frontend/src/utils/
   homeNewsConstants.js          NEWS_ITEMS(4 条资讯:badge / date / title / text / icon / to / variant)
 ```
 
+> 注:原 HomePage 里的 `isLoggedIn` + `syncLoginState`(依赖 `storage` 事件)
+> 是 `getImpactPanelContent(home.impact, isLoggedIn.value)` 这一死 computed
+> 的唯一消费者。删 impactPanel 后这两个 ref/函数也连带死掉,因此不单独抽
+> `useLoginSync`。如果将来某个 panel 需要登录态,再补 composable。
+
 ## 单元职责与不做什么
 
 | 单元 | 职责 | 不做什么 |
 |---|---|---|
 | `HomePage.vue` | 编排 composables、传递 props、绑定 events、主页级布局(`.home-page` 容器)、加载/错误状态、主页级响应式断点 | 不持有任何业务 ref / computed(除 `pageRef`)、不调 API、不写 transform 字符串、不做滚动监听 |
-| `useHomeData.js` | 暴露 `loading` / `loadError` / `home` reactive;`loadHome()` 走 `fetchHomeData()` 并在 finally 块复位 loading | 不感知 typewriter、不持有登录态、不做动画 |
-| `useLoginSync.js` | 暴露 `isLoggedIn` ref;`onMounted` 注册 `storage` 事件、`onUnmounted` 退订;事件触发时调用 `getCurrentUser()` 重读 | 不调任何业务 API、不触发视图副作用 |
+| `useHomeData.js` | 暴露 `loading` / `loadError` / `home` 三个 ref;`loadHome()` 走 `fetchHomeData()`,成功时 `home.value = data`,catch 内 `loadError.value = "首页数据加载失败，请稍后重试。"`,finally 块复位 `loading`;与 `useCharityFilters` / `useDonationForm` 一致走 ref 风格 | 不感知 typewriter、不持有登录态、不做动画 |
 | `useTypewriter.js` | 暴露 `text` ref + `start(s)` / `stop()`;`prefers-reduced-motion` 为 true 时 `start` 直接置完整文本不启动定时器;接受 `delay` / `startDelay` 配置 | 不感知业务字段、不与具体页面耦合 |
 | `useTilt3D.js` | 接受卡片数量 `count`,返回 `cardRefs` / `cardHoverStates` / `setCardRef` / `onMove(event, index)` / `onLeave(index)`;`onMove` 内做 `getBoundingClientRect` + rotateX/Y + scale 计算 | 不持有路由、不感知跳转目标 |
 | `useScrollStack.js` | 暴露 `scrollerRef` / `bindScroller()` / `handleScroll()`;`bindScroller` 内 `querySelectorAll('.news-stack-card')` 收集卡片 + 设置 will-change/transform-origin;`handleScroll` 内 `requestAnimationFrame` + transform 计算;`onUnmounted` 清理 `lastTransforms` Map | 不感知卡片内容、不持有跳转目标 |
@@ -137,7 +140,6 @@ const pageRef = ref(null);
 useRevealOnScroll(pageRef);
 
 const data = useHomeData();
-const login = useLoginSync();
 const typewriter = useTypewriter({ delay: 58, startDelay: 320 });
 
 const HERO_DESCRIPTION = "通过高精度AI和有机物流改变城市回收...";
@@ -165,16 +167,16 @@ onMounted(() => {
 });
 ```
 
-view 模板(精简示意):
+view 模板(精简示意,ref 在 template 内自动解包):
 ```html
 <main ref="pageRef" class="home-page" data-reveal>
   <template v-if="data.loading.value">
     <!-- 加载 skeleton,inline 9 行 -->
   </template>
-  <template v-else-if="data.home.value?.hero">
+  <template v-else-if="data.home.hero">
     <HomeHeroPanel
-      :description-text="typewriter.text.value"
-      :primary-cta-to="data.home.value.hero.primaryCta?.to || DEFAULT_HOME_HERO.primaryCta.to"
+      :description-text="typewriter.text"
+      :primary-cta-to="data.home.hero.primaryCta?.to || DEFAULT_HOME_HERO.primaryCta.to"
       @scroll-to-services="scrollToServices"
     />
     <HomeCoreFunctionsPanel
@@ -202,7 +204,6 @@ view 内只保留 3 个 inline 协调函数(均无业务状态):
 ### Composable 耦合
 
 - `useHomeData` 完全独立,只依赖 `mock/clientApi.js` 的 `fetchHomeData`。
-- `useLoginSync` 完全独立,只依赖 `utils/auth.js` 的 `getCurrentUser`。
 - `useTypewriter` 完全独立(通用组件)。
 - `useTilt3D` 完全独立(通用组件)。
 - `useScrollStack` 完全独立(通用组件,但 CSS class 选择器 `.news-stack-card`
@@ -236,14 +237,13 @@ if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
 
 ### 卸载清理
 
-- `useLoginSync` 内部 `onMounted` 注册、`onUnmounted` 退订 `storage` 事件。
 - `useTypewriter` 内部 `onUnmounted` 清 `setTimeout` handle。
 - `useScrollStack` 内部 `onUnmounted` 清 `lastTransforms` Map + `cardRefs`。
 - view 自身的 `pageRef` 由 `useRevealOnScroll` 内部清理(沿用现状)。
 
 ### 数据持久化
 
-无持久化。`isLoggedIn` 跨标签同步靠 `storage` 事件。
+无持久化。
 
 ## 样式边界
 
@@ -345,7 +345,6 @@ if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
 | 4 张资讯卡滚动 | 堆叠 transform 计算:translate3d + scale 渐变;pin 到 stack position |
 | 4 张资讯卡 click | 跳对应路由(/ai-identify / /upcycle / /profile / /science) |
 | 4 张资讯卡 Enter/Space | 跳对应路由 |
-| 浏览器多标签登录/登出 | storage 事件触发,`isLoggedIn` 同步 |
 | 模拟 fetchHomeData 失败 | 显示 `.state-error` 红条 + 中文提示 |
 | reveal 动画 | 各 section 依序 reveal(由 view 上 `useRevealOnScroll(pageRef)` 驱动) |
 
@@ -394,10 +393,10 @@ if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
   是 PNG import(`blocks.png` / `ghost.png` / `heart-handshake.png` /
   `image-plus.png`),FunctionCard 接收 string URL,在 template 里 `<img :src="icon">`。
   view 层负责 `import iconUrl from "../../assets/..."` 并塞进 `FUNCTION_CARDS`。
-- **`watch(home.hero)` 触发打字机**:useHomeData 的 `home` 是 reactive 对象,
-  watch 内需 `() => data.home.value?.hero`(或 useHomeData 暴露 reactive,
-  watch 选择 `() => data.home.hero`)。决策:useHomeData 暴露 `home` 为
-  reactive,view 里写 `watch(() => data.home.hero, (hero) => {...})`。
+- **`watch(home.value?.hero)` 触发打字机**:`useHomeData` 的 `home` 是 ref
+  (与 `useCharityFilters` 暴露 ref 的风格一致),view 里写
+  `watch(() => data.home.value?.hero, (hero) => { if (hero) typewriter.start(HERO_DESCRIPTION); })`。
+  template 里访问时 Vue 自动解包,`data.home` / `data.home.value` 等价。
 - **`@ready` 事件传递 ref**:HomeCoreFunctionsPanel 通过 emit `ready(ref)`
   把 `servicesSectionRef` 暴露给 view。view 用 `(el) => (servicesSectionRef = el)`
   接收后用于"探索功能"CTA 的 scrollIntoView + focus。
@@ -427,12 +426,11 @@ if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
 
 ## 文件清单
 
-### 新增(11 个)
+### 新增(10 个)
 
 ```
 frontend/src/utils/homeNewsConstants.js
 frontend/src/composables/useHomeData.js
-frontend/src/composables/useLoginSync.js
 frontend/src/composables/useTypewriter.js
 frontend/src/composables/useTilt3D.js
 frontend/src/composables/useScrollStack.js
