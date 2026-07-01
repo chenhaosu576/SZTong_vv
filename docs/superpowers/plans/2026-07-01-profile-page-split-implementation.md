@@ -1,10 +1,10 @@
-# ProfilePage Split Implementation Plan
+# ProfilePage Split Implementation Plan (7-file)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Split `frontend/src/views/client/ProfilePage.vue` into focused profile components and page-specific composables without changing visual behavior, route behavior, mock API contracts, or user-facing content.
+**Goal:** Split `frontend/src/views/client/ProfilePage.vue` (2958 lines) into 5 focused profile components and 2 page-specific composables, without changing visual behavior, route behavior, mock API contracts, or user-facing content.
 
-**Architecture:** Keep `ProfilePage.vue` as the orchestration layer for loading, error display, reveal registration, and wiring composables to child components. Move UI markup and scoped CSS into `frontend/src/components/client/profile/`; move stateful page logic into `frontend/src/composables/useProfile*.js` plus `useBlurText.js`. Preserve current localStorage keys, random chart behavior, calendar generation behavior, and check-in side effects.
+**Architecture:** Keep `ProfilePage.vue` as a thin orchestrator (160-230 lines). 4 single-consumer composables (`useProfileData` / `useProfileAvatar` / `useProfileImpactMetrics` / `useBlurText`) are inlined into view / `ProfileHeaderPanel` / `ProfileImpactDashboard`. 3 single-consumer sub-panels (`ProfileLevelBottle` / `ProfileStreakCard` / `ProfileMetricCard`) are inlined into `ProfileHeaderPanel` / `ProfileImpactDashboard`. 3 static list panels (`ProfileTasksPanel` / `ProfileAchievementsPanel` / `ProfileActivityList`) are merged into `ProfileBottomSectionsPanel` as 3 sub-sections. Only 2 composables (`useProfileCheckIn` / `useProfileCalendar`) and 5 panels remain as separate files.
 
 **Tech Stack:** Vue 3 `<script setup>`, Vite, Vitest, Vue Router, existing mock APIs in `frontend/src/mock/clientApi.js` and `frontend/src/mock/timeApi.js`.
 
@@ -14,31 +14,19 @@
 
 Create:
 
-- `frontend/src/components/client/profile/ProfileHeaderPanel.vue`: top profile section; owns avatar click/input DOM and emits profile message DOM via `blur-ready`.
-- `frontend/src/components/client/profile/ProfileLevelBottle.vue`: level bottle markup, hover state, and bottle-scoped styles.
-- `frontend/src/components/client/profile/ProfileStreakCard.vue`: compact check-in card, check-in button, and optional hidden debug reset.
+- `frontend/src/components/client/profile/ProfileHeaderPanel.vue`: top profile section; inlines avatar (validation + FileReader + `localStorage.userAvatar`), blur text (IntersectionObserver + character highlighting), level bottle markup, streak card.
 - `frontend/src/components/client/profile/ProfileCheckInAlert.vue`: fixed-position duplicate check-in alert.
 - `frontend/src/components/client/profile/ProfileCalendarSection.vue`: calendar section markup, month navigation, legend, tooltip, insight, and `ready(el)` DOM handoff.
-- `frontend/src/components/client/profile/ProfileImpactDashboard.vue`: period tabs, metric card grid, and points card.
-- `frontend/src/components/client/profile/ProfileMetricCard.vue`: reusable energy/CO2 metric card with chart hover state.
-- `frontend/src/components/client/profile/ProfileTasksPanel.vue`: current task list rendering.
-- `frontend/src/components/client/profile/ProfileAchievementsPanel.vue`: achievement badge rendering and `view-all` emit.
-- `frontend/src/components/client/profile/ProfileActivityList.vue`: recent activity list rendering.
-- `frontend/src/composables/useProfileData.js`: profile and initial date/order loading.
-- `frontend/src/composables/useProfileAvatar.js`: avatar state, validation, FileReader, and `localStorage.userAvatar`.
-- `frontend/src/composables/useProfileCheckIn.js`: check-in state, `guardianDays`, `lastCheckInDate`, alert timers, and animation flags.
-- `frontend/src/composables/useProfileCalendar.js`: month state, order map, calendar generation, month switching, and today highlight.
-- `frontend/src/composables/useProfileImpactMetrics.js`: period state, random chart data, and SVG path helper.
-- `frontend/src/composables/useBlurText.js`: guardian-days text splitting and IntersectionObserver wiring.
-- `frontend/src/composables/__tests__/useProfileImpactMetrics.test.js`
-- `frontend/src/composables/__tests__/useProfileAvatar.test.js`
+- `frontend/src/components/client/profile/ProfileImpactDashboard.vue`: period tabs, 2 inlined metric cards, points card, rewards banner; inlines `selectedPeriod` ref + `energyData` / `co2Data` computed + `generateRandomBars` / `generateLineChartPoints` / `generateLinePath` helpers.
+- `frontend/src/components/client/profile/ProfileBottomSectionsPanel.vue`: 3 inlined sub-sections (tasks list, achievements list, activity list) and `view-all-achievements` emit.
+- `frontend/src/composables/useProfileCheckIn.js`: check-in state, `guardianDays`, `lastCheckInDate`, alert timers, animation flags.
+- `frontend/src/composables/useProfileCalendar.js`: month state, order map, calendar generation, month switching, today highlight.
 - `frontend/src/composables/__tests__/useProfileCheckIn.test.js`
 - `frontend/src/composables/__tests__/useProfileCalendar.test.js`
-- `frontend/src/composables/__tests__/useBlurText.test.js`
 
 Modify:
 
-- `frontend/src/views/client/ProfilePage.vue`: reduce to orchestration, constants, imports, and minimal page-level styles.
+- `frontend/src/views/client/ProfilePage.vue`: reduce to orchestration, `loadProfile` async (inlined from `useProfileData`), `levelProgress` computed, 3 static constants, imports, and minimal page-level styles.
 
 Do not modify:
 
@@ -51,7 +39,7 @@ Do not modify:
 
 ## Shared Data Contracts
 
-Use these exact constants in `ProfilePage.vue` when static sections are extracted:
+Use these exact constants in `ProfilePage.vue`:
 
 ```js
 const PROFILE_TASKS = [
@@ -125,316 +113,84 @@ async function handleCheckIn() {
 function handleCalendarReady(el) {
   setCalendarSectionRef(el);
 }
-
-function handleBlurReady(el) {
-  setBlurTextRef(el);
-}
 ```
 
 ---
 
-### Task 1: Extract Impact Metrics Logic
+### Task 1: Extract Check-In and Calendar Composables
 
 **Files:**
 
-- Create: `frontend/src/composables/useProfileImpactMetrics.js`
-- Create: `frontend/src/composables/__tests__/useProfileImpactMetrics.test.js`
+- Create: `frontend/src/composables/useProfileCheckIn.js`
+- Create: `frontend/src/composables/__tests__/useProfileCheckIn.test.js`
+- Create: `frontend/src/composables/useProfileCalendar.js`
+- Create: `frontend/src/composables/__tests__/useProfileCalendar.test.js`
 - Modify: `frontend/src/views/client/ProfilePage.vue`
 
-- [ ] **Step 1: Write the failing Vitest coverage**
+- [ ] **Step 1: Write the failing `useProfileCheckIn` test**
 
-Create `frontend/src/composables/__tests__/useProfileImpactMetrics.test.js`:
-
-```js
-import { describe, expect, it } from "vitest";
-import { useProfileImpactMetrics } from "../useProfileImpactMetrics";
-
-describe("useProfileImpactMetrics", () => {
-  it("starts with monthly bar chart data for energy and CO2", () => {
-    const metrics = useProfileImpactMetrics();
-
-    expect(metrics.selectedPeriod.value).toBe("本月");
-    expect(metrics.energyData.value.chartType).toBe("bar");
-    expect(metrics.energyData.value.bars).toHaveLength(30);
-    expect(metrics.co2Data.value.chartType).toBe("bar");
-    expect(metrics.co2Data.value.bars).toHaveLength(30);
-  });
-
-  it("switches quarterly data to line charts", () => {
-    const metrics = useProfileImpactMetrics();
-
-    metrics.selectedPeriod.value = "季度";
-
-    expect(metrics.energyData.value.chartType).toBe("line");
-    expect(metrics.energyData.value.points).toHaveLength(12);
-    expect(metrics.co2Data.value.chartType).toBe("line");
-    expect(metrics.co2Data.value.points).toHaveLength(12);
-  });
-
-  it("generates the existing SVG line path format", () => {
-    const { generateLinePath } = useProfileImpactMetrics();
-
-    expect(generateLinePath([
-      { x: 0, y: 25 },
-      { x: 50, y: 40 },
-      { x: 100, y: 15 },
-    ])).toBe("M 0 25 L 50 40 L 100 15");
-    expect(generateLinePath([])).toBe("");
-  });
-});
-```
-
-- [ ] **Step 2: Run the focused test and verify it fails**
-
-Run:
-
-```bash
-cd frontend
-npm run test -- useProfileImpactMetrics
-```
-
-Expected: test run fails because `../useProfileImpactMetrics` does not exist.
-
-- [ ] **Step 3: Create `useProfileImpactMetrics.js` by moving existing logic**
-
-Create `frontend/src/composables/useProfileImpactMetrics.js`:
-
-```js
-import { computed, ref } from "vue";
-
-export function useProfileImpactMetrics() {
-  const selectedPeriod = ref("本月");
-
-  const energyData = computed(() => {
-    if (selectedPeriod.value === "本周") {
-      return {
-        value: 458,
-        unit: "kWh",
-        trend: "+5.2%",
-        chartType: "bar",
-        bars: generateRandomBars(7),
-        labels: ["周一", "周二", "周三", "周四", "周五", "周六", "周日"],
-      };
-    }
-
-    if (selectedPeriod.value === "本月") {
-      return {
-        value: 1842,
-        unit: "kWh",
-        trend: "+8.3%",
-        chartType: "bar",
-        bars: generateRandomBars(30),
-        labels: Array.from({ length: 30 }, (_, i) => `${i + 1}日`),
-      };
-    }
-
-    return {
-      value: 5526,
-      unit: "kWh",
-      trend: "+12.1%",
-      chartType: "line",
-      points: generateLineChartPoints(12),
-      labels: ["第1周", "第2周", "第3周", "第4周", "第5周", "第6周", "第7周", "第8周", "第9周", "第10周", "第11周", "第12周"],
-    };
-  });
-
-  const co2Data = computed(() => {
-    if (selectedPeriod.value === "本周") {
-      return {
-        value: 12.4,
-        unit: "kg",
-        trend: "+3.8%",
-        chartType: "bar",
-        bars: generateRandomBars(7),
-        labels: ["周一", "周二", "周三", "周四", "周五", "周六", "周日"],
-      };
-    }
-
-    if (selectedPeriod.value === "本月") {
-      return {
-        value: 48.6,
-        unit: "kg",
-        trend: "+6.5%",
-        chartType: "bar",
-        bars: generateRandomBars(30),
-        labels: Array.from({ length: 30 }, (_, i) => `${i + 1}日`),
-      };
-    }
-
-    return {
-      value: 145.8,
-      unit: "kg",
-      trend: "+9.7%",
-      chartType: "line",
-      points: generateLineChartPoints(12),
-      labels: ["第1周", "第2周", "第3周", "第4周", "第5周", "第6周", "第7周", "第8周", "第9周", "第10周", "第11周", "第12周"],
-    };
-  });
-
-  return {
-    selectedPeriod,
-    energyData,
-    co2Data,
-    generateRandomBars,
-    generateLineChartPoints,
-    generateLinePath,
-  };
-}
-
-export function generateRandomBars(count) {
-  const bars = [];
-  const activeCount = Math.floor(count * 0.3);
-  const activeIndices = new Set();
-
-  while (activeIndices.size < activeCount) {
-    activeIndices.add(Math.floor(Math.random() * count));
-  }
-
-  for (let i = 0; i < count; i++) {
-    const height = Math.floor(Math.random() * 60) + 40;
-    const active = activeIndices.has(i);
-    bars.push({
-      height,
-      active,
-      value: active ? Math.floor(height * 0.8) : Math.floor(height * 0.5),
-    });
-  }
-
-  return bars;
-}
-
-export function generateLineChartPoints(count) {
-  const points = [];
-  let lastValue = 50;
-
-  for (let i = 0; i < count; i++) {
-    const change = (Math.random() - 0.3) * 20;
-    lastValue = Math.max(30, Math.min(100, lastValue + change));
-    points.push({
-      x: (i / (count - 1)) * 100,
-      y: 100 - lastValue,
-      value: Math.floor(lastValue),
-    });
-  }
-
-  return points;
-}
-
-export function generateLinePath(points) {
-  if (points.length === 0) return "";
-
-  let path = `M ${points[0].x} ${points[0].y}`;
-  for (let i = 1; i < points.length; i++) {
-    path += ` L ${points[i].x} ${points[i].y}`;
-  }
-
-  return path;
-}
-```
-
-- [ ] **Step 4: Wire `ProfilePage.vue` to the composable without moving markup**
-
-Modify the script section of `frontend/src/views/client/ProfilePage.vue`:
-
-```js
-import { computed, onMounted, ref, onBeforeUnmount, useTemplateRef } from "vue";
-import { useProfileImpactMetrics } from "@/composables/useProfileImpactMetrics";
-
-const {
-  selectedPeriod,
-  energyData,
-  co2Data,
-  generateLinePath,
-} = useProfileImpactMetrics();
-```
-
-Remove the local definitions of `selectedPeriod`, `energyData`, `co2Data`, `generateRandomBars`, `generateLineChartPoints`, and `generateLinePath`. Keep `hoveredBarIndex` and `hoveredPointIndex` in `ProfilePage.vue` until `ProfileMetricCard.vue` is extracted.
-
-- [ ] **Step 5: Run focused test and build**
-
-Run:
-
-```bash
-cd frontend
-npm run test -- useProfileImpactMetrics
-npm run build
-```
-
-Expected: the focused Vitest file passes and Vite build exits with code 0.
-
-- [ ] **Step 6: Commit**
-
-```bash
-git add frontend/src/composables/useProfileImpactMetrics.js frontend/src/composables/__tests__/useProfileImpactMetrics.test.js frontend/src/views/client/ProfilePage.vue
-git commit -m "refactor(profile): extract impact metrics logic"
-```
-
----
-
-### Task 2: Extract Avatar Logic
-
-**Files:**
-
-- Create: `frontend/src/composables/useProfileAvatar.js`
-- Create: `frontend/src/composables/__tests__/useProfileAvatar.test.js`
-- Modify: `frontend/src/views/client/ProfilePage.vue`
-
-- [ ] **Step 1: Write avatar composable tests**
-
-Create `frontend/src/composables/__tests__/useProfileAvatar.test.js`:
+Create `frontend/src/composables/__tests__/useProfileCheckIn.test.js`:
 
 ```js
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { nextTick } from "vue";
-import { useProfileAvatar } from "../useProfileAvatar";
+import { useProfileCheckIn } from "../useProfileCheckIn";
 
-class MockFileReader {
-  readAsDataURL() {
-    this.onload({ target: { result: "data:image/png;base64,abc" } });
-  }
-}
-
-describe("useProfileAvatar", () => {
+describe("useProfileCheckIn", () => {
   beforeEach(() => {
     localStorage.clear();
-    vi.stubGlobal("FileReader", MockFileReader);
-    vi.spyOn(window, "alert").mockImplementation(() => {});
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 6, 1, 9, 0, 0));
   });
 
-  it("reads the stored avatar", () => {
-    localStorage.setItem("userAvatar", "stored-avatar");
+  it("reads guardian days from localStorage", () => {
+    localStorage.setItem("guardianDays", "420");
 
-    const { avatarUrl } = useProfileAvatar();
+    const checkIn = useProfileCheckIn();
 
-    expect(avatarUrl.value).toBe("stored-avatar");
+    expect(checkIn.guardianDays.value).toBe(420);
   });
 
-  it("rejects non-image files", () => {
-    const { handleAvatarChange } = useProfileAvatar();
+  it("detects today's existing check-in", () => {
+    localStorage.setItem("lastCheckInDate", new Date().toDateString());
+    const checkIn = useProfileCheckIn();
 
-    handleAvatarChange({ target: { files: [{ type: "text/plain", size: 100 }] } });
+    checkIn.checkTodayCheckIn();
 
-    expect(window.alert).toHaveBeenCalledWith("请选择图片文件");
-    expect(localStorage.getItem("userAvatar")).toBeNull();
+    expect(checkIn.hasCheckedInToday.value).toBe(true);
   });
 
-  it("rejects images larger than five megabytes", () => {
-    const { handleAvatarChange } = useProfileAvatar();
+  it("increments guardian days once on a successful check-in", () => {
+    const checkIn = useProfileCheckIn();
 
-    handleAvatarChange({ target: { files: [{ type: "image/png", size: 5 * 1024 * 1024 + 1 }] } });
+    const result = checkIn.triggerCheckIn();
 
-    expect(window.alert).toHaveBeenCalledWith("图片大小不能超过5MB");
-    expect(localStorage.getItem("userAvatar")).toBeNull();
+    expect(result).toEqual({ checkedIn: true });
+    expect(checkIn.guardianDays.value).toBe(366);
+    expect(localStorage.getItem("guardianDays")).toBe("366");
+    expect(checkIn.hasCheckedInToday.value).toBe(true);
   });
 
-  it("stores valid images as data urls", async () => {
-    const { avatarUrl, handleAvatarChange } = useProfileAvatar();
+  it("shows alert and does not increment on duplicate check-in", async () => {
+    const checkIn = useProfileCheckIn();
+    checkIn.triggerCheckIn();
 
-    handleAvatarChange({ target: { files: [{ type: "image/png", size: 1024 }] } });
-    await nextTick();
+    const result = checkIn.triggerCheckIn();
 
-    expect(avatarUrl.value).toBe("data:image/png;base64,abc");
-    expect(localStorage.getItem("userAvatar")).toBe("data:image/png;base64,abc");
+    expect(result).toEqual({ checkedIn: false });
+    expect(checkIn.guardianDays.value).toBe(366);
+    expect(checkIn.showCheckInAlert.value).toBe(true);
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(checkIn.showCheckInAlert.value).toBe(false);
+  });
+
+  it("resets check-in state for hidden debug controls", () => {
+    const checkIn = useProfileCheckIn();
+    checkIn.triggerCheckIn();
+
+    checkIn.resetCheckInForTesting();
+
+    expect(localStorage.getItem("lastCheckInDate")).toBeNull();
+    expect(checkIn.hasCheckedInToday.value).toBe(false);
   });
 });
 ```
@@ -445,251 +201,96 @@ Run:
 
 ```bash
 cd frontend
-npm run test -- useProfileAvatar
+npm run test -- useProfileCheckIn
 ```
 
-Expected: test run fails because `../useProfileAvatar` does not exist.
+Expected: test run fails because `../useProfileCheckIn` does not exist.
 
-- [ ] **Step 3: Create `useProfileAvatar.js`**
+- [ ] **Step 3: Create `useProfileCheckIn.js`**
 
-Create `frontend/src/composables/useProfileAvatar.js`:
+Create `frontend/src/composables/useProfileCheckIn.js`:
 
 ```js
 import { ref } from "vue";
 
-const AVATAR_STORAGE_KEY = "userAvatar";
-const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
+const GUARDIAN_DAYS_KEY = "guardianDays";
+const LAST_CHECK_IN_KEY = "lastCheckInDate";
 
-export function useProfileAvatar() {
-  const avatarUrl = ref(localStorage.getItem(AVATAR_STORAGE_KEY) || null);
+export function useProfileCheckIn() {
+  const streakDays = ref(42);
+  const totalRecycles = ref(156);
+  const streakRecord = ref(58);
+  const isStreakAnimating = ref(false);
+  const hasCheckedInToday = ref(false);
+  const showCheckInAlert = ref(false);
+  const guardianDays = ref(parseInt(localStorage.getItem(GUARDIAN_DAYS_KEY), 10) || 365);
+  const isGuardianDaysUpdating = ref(false);
 
-  function handleAvatarChange(event) {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  function checkTodayCheckIn() {
+    const lastCheckInDate = localStorage.getItem(LAST_CHECK_IN_KEY);
+    hasCheckedInToday.value = lastCheckInDate === new Date().toDateString();
+  }
 
-    if (!file.type.startsWith("image/")) {
-      alert("请选择图片文件");
-      return;
+  function triggerCheckIn() {
+    if (hasCheckedInToday.value) {
+      showCheckInAlert.value = true;
+      setTimeout(() => {
+        showCheckInAlert.value = false;
+      }, 3000);
+      return { checkedIn: false };
     }
 
-    if (file.size > MAX_AVATAR_BYTES) {
-      alert("图片大小不能超过5MB");
-      return;
-    }
+    isStreakAnimating.value = true;
+    setTimeout(() => {
+      isStreakAnimating.value = false;
+    }, 1000);
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const base64 = e.target.result;
-      avatarUrl.value = base64;
-      localStorage.setItem(AVATAR_STORAGE_KEY, base64);
-    };
-    reader.readAsDataURL(file);
+    isGuardianDaysUpdating.value = true;
+    guardianDays.value++;
+    localStorage.setItem(GUARDIAN_DAYS_KEY, guardianDays.value.toString());
+    setTimeout(() => {
+      isGuardianDaysUpdating.value = false;
+    }, 600);
+
+    localStorage.setItem(LAST_CHECK_IN_KEY, new Date().toDateString());
+    hasCheckedInToday.value = true;
+
+    return { checkedIn: true };
+  }
+
+  function resetCheckInForTesting() {
+    localStorage.removeItem(LAST_CHECK_IN_KEY);
+    hasCheckedInToday.value = false;
   }
 
   return {
-    avatarUrl,
-    handleAvatarChange,
+    streakDays,
+    totalRecycles,
+    streakRecord,
+    guardianDays,
+    hasCheckedInToday,
+    isStreakAnimating,
+    isGuardianDaysUpdating,
+    showCheckInAlert,
+    checkTodayCheckIn,
+    triggerCheckIn,
+    resetCheckInForTesting,
   };
 }
 ```
 
-- [ ] **Step 4: Wire `ProfilePage.vue` to the composable**
-
-Modify imports and setup:
-
-```js
-import { useProfileAvatar } from "@/composables/useProfileAvatar";
-
-const { avatarUrl, handleAvatarChange } = useProfileAvatar();
-const avatarFileInput = ref(null);
-
-function triggerAvatarUpload() {
-  avatarFileInput.value?.click();
-}
-```
-
-Remove the old local `avatarUrl` initialization and old `handleAvatarChange` body from `ProfilePage.vue`.
-
-- [ ] **Step 5: Run focused test and build**
+- [ ] **Step 4: Run the focused test and verify it passes**
 
 Run:
 
 ```bash
 cd frontend
-npm run test -- useProfileAvatar
-npm run build
+npm run test -- useProfileCheckIn
 ```
 
-Expected: the focused Vitest file passes and Vite build exits with code 0.
+Expected: 5 tests pass.
 
-- [ ] **Step 6: Commit**
-
-```bash
-git add frontend/src/composables/useProfileAvatar.js frontend/src/composables/__tests__/useProfileAvatar.test.js frontend/src/views/client/ProfilePage.vue
-git commit -m "refactor(profile): extract avatar state"
-```
-
----
-
-### Task 3: Extract Metric and Bottle Components
-
-**Files:**
-
-- Create: `frontend/src/components/client/profile/ProfileMetricCard.vue`
-- Create: `frontend/src/components/client/profile/ProfileLevelBottle.vue`
-- Modify: `frontend/src/views/client/ProfilePage.vue`
-
-- [ ] **Step 1: Create `ProfileMetricCard.vue` with local hover state**
-
-Move the duplicated metric-card chart markup from `ProfilePage.vue` into `ProfileMetricCard.vue`. Use this script contract:
-
-```vue
-<script setup>
-import { ref } from "vue";
-
-defineProps({
-  metric: { type: Object, required: true },
-  gradientId: { type: String, required: true },
-  accentColor: { type: String, required: true },
-  formatTooltipValue: { type: Function, required: true },
-  generateLinePath: { type: Function, required: true },
-});
-
-const hoveredBarIndex = ref(null);
-const hoveredPointIndex = ref(null);
-</script>
-```
-
-Template rules:
-
-- Use `metric.label` for header label.
-- Use `metric.trend` for trend.
-- Use `metric.value` and `metric.unit` for the large value.
-- Use `metric.chartType === "bar"` to render bars.
-- Use `formatTooltipValue(value)` for both bar and line tooltip values.
-- Keep the current SVG area path shape: `generateLinePath(metric.points) + " L 100 100 L 0 100 Z"`.
-
-- [ ] **Step 2: Create `ProfileLevelBottle.vue`**
-
-Move bottle markup from `ProfilePage.vue` lines around the current `.bottle-container` section into `ProfileLevelBottle.vue`. Use this script contract:
-
-```vue
-<script setup>
-import { ref } from "vue";
-
-defineProps({
-  levelProgress: { type: Number, required: true },
-});
-
-const isBottleHovered = ref(false);
-</script>
-```
-
-Template rules:
-
-- Preserve cap, neck, body, liquid, wave, bubble, and glass reflection markup.
-- Rename tooltip classes to `bottle-tooltip-label` and `bottle-tooltip-progress`.
-- Keep `:style="{ height: levelProgress + '%' }"` for `.bottle-liquid`.
-
-- [ ] **Step 3: Wire both components into `ProfilePage.vue`**
-
-Add imports:
-
-```js
-import ProfileLevelBottle from "@/components/client/profile/ProfileLevelBottle.vue";
-import ProfileMetricCard from "@/components/client/profile/ProfileMetricCard.vue";
-```
-
-Replace the bottle container with:
-
-```vue
-<ProfileLevelBottle :level-progress="levelProgress" />
-```
-
-Replace the energy and CO2 metric card blocks with:
-
-```vue
-<ProfileMetricCard
-  :metric="{ label: '已节约能源', ...energyData }"
-  gradient-id="energyGradient"
-  accent-color="#006418"
-  :format-tooltip-value="(value) => `${value} kWh`"
-  :generate-line-path="generateLinePath"
-/>
-
-<ProfileMetricCard
-  :metric="{ label: '减少二氧化碳', ...co2Data }"
-  gradient-id="co2Gradient"
-  accent-color="#006418"
-  :format-tooltip-value="(value) => `${(value * 0.15).toFixed(1)} kg`"
-  :generate-line-path="generateLinePath"
-/>
-```
-
-Remove `isBottleHovered`, `hoveredBarIndex`, and `hoveredPointIndex` from `ProfilePage.vue`.
-
-- [ ] **Step 4: Move CSS into the new components**
-
-Move bottle-related CSS and keyframes from `ProfilePage.vue` into `ProfileLevelBottle.vue`:
-
-- `.bottle-container`
-- `.bottle-tooltip`
-- `.bottle-cap`
-- `.bottle-neck`
-- `.bottle-body`
-- `.bottle-liquid`
-- `.wave`
-- `.bubble`
-- `.glass-reflection`
-- bottle keyframes currently named `tooltipSlideDown`, `intensiveWave1`, `intensiveWave2`, `intensiveWave3`, `intensiveWave4`, `fastBubbleRise1`, `fastBubbleRise2`, `fastBubbleRise3`, `fastBubbleRise4`, `reflectionShimmer`
-
-Move metric-related CSS and keyframes from `ProfilePage.vue` into `ProfileMetricCard.vue`:
-
-- `.metric-card`
-- `.metric-header`
-- `.metric-label`
-- `.metric-trend`
-- `.metric-value`
-- `.metric-unit`
-- `.mini-chart`
-- `.bar`
-- `.bar-tooltip`
-- `.line-chart`
-- `.line-tooltip`
-- chart tooltip keyframe currently named `tooltipFadeIn`
-
-Leave `.metrics-grid`, `.period-tabs`, `.metric-rank`, `.rewards-banner`, and `.metric-value.points` in `ProfilePage.vue` until `ProfileImpactDashboard.vue` is extracted.
-
-- [ ] **Step 5: Build**
-
-Run:
-
-```bash
-cd frontend
-npm run build
-```
-
-Expected: Vite build exits with code 0.
-
-- [ ] **Step 6: Commit**
-
-```bash
-git add frontend/src/components/client/profile/ProfileMetricCard.vue frontend/src/components/client/profile/ProfileLevelBottle.vue frontend/src/views/client/ProfilePage.vue
-git commit -m "refactor(profile): extract metric and level displays"
-```
-
----
-
-### Task 4: Extract Calendar Logic and Calendar Section
-
-**Files:**
-
-- Create: `frontend/src/composables/useProfileCalendar.js`
-- Create: `frontend/src/composables/__tests__/useProfileCalendar.test.js`
-- Create: `frontend/src/components/client/profile/ProfileCalendarSection.vue`
-- Modify: `frontend/src/views/client/ProfilePage.vue`
-
-- [ ] **Step 1: Write calendar composable tests**
+- [ ] **Step 5: Write the failing `useProfileCalendar` test**
 
 Create `frontend/src/composables/__tests__/useProfileCalendar.test.js`:
 
@@ -746,7 +347,7 @@ describe("useProfileCalendar", () => {
 });
 ```
 
-- [ ] **Step 2: Run focused test and verify it fails**
+- [ ] **Step 6: Run the focused test and verify it fails**
 
 Run:
 
@@ -757,9 +358,9 @@ npm run test -- useProfileCalendar
 
 Expected: test run fails because `../useProfileCalendar` does not exist.
 
-- [ ] **Step 3: Create `useProfileCalendar.js`**
+- [ ] **Step 7: Create `useProfileCalendar.js`**
 
-Create the composable by moving existing calendar functions. Use this public API:
+Create `frontend/src/composables/useProfileCalendar.js`:
 
 ```js
 import { computed, ref } from "vue";
@@ -864,9 +465,460 @@ export function useProfileCalendar() {
 }
 ```
 
-- [ ] **Step 4: Create `ProfileCalendarSection.vue`**
+- [ ] **Step 8: Run the focused tests and verify they pass**
 
-Move the calendar section template and CSS into `ProfileCalendarSection.vue`. Use this script contract:
+Run:
+
+```bash
+cd frontend
+npm run test -- useProfileCheckIn useProfileCalendar
+```
+
+Expected: 8 tests pass.
+
+- [ ] **Step 9: Wire the composables into `ProfilePage.vue`**
+
+Add imports:
+
+```js
+import { useProfileCheckIn } from "@/composables/useProfileCheckIn";
+import { useProfileCalendar } from "@/composables/useProfileCalendar";
+```
+
+Add setup at top level (before any other code that uses these refs):
+
+```js
+const {
+  streakDays,
+  guardianDays,
+  hasCheckedInToday,
+  isStreakAnimating,
+  isGuardianDaysUpdating,
+  showCheckInAlert,
+  checkTodayCheckIn,
+  triggerCheckIn,
+  resetCheckInForTesting,
+} = useProfileCheckIn();
+
+const {
+  calendarDays,
+  highlightedDay,
+  monthText,
+  setCalendarSectionRef,
+  initializeCalendar,
+  changeMonth,
+  highlightToday,
+} = useProfileCalendar();
+```
+
+Add handlers (still in `ProfilePage.vue` — used by `ProfileHeaderPanel` / `ProfileCalendarSection` in later tasks):
+
+```js
+async function handleCheckIn() {
+  const result = triggerCheckIn();
+  if (result?.checkedIn) {
+    await highlightToday();
+  }
+}
+
+function handleCalendarReady(el) {
+  setCalendarSectionRef(el);
+}
+```
+
+`loadProfile` (in `ProfilePage.vue`, to be inlined in Task 5) must call `initializeCalendar(calendarDate, ordersData)` and `checkTodayCheckIn()` at the end of the try block, before the loading ref is reset. Keep the existing `Promise.all([fetchProfileData(), fetchRealDate()])` + `fetchCalendarWithOrders(calendarDate.year, calendarDate.month)` order.
+
+- [ ] **Step 10: Build**
+
+Run:
+
+```bash
+cd frontend
+npm run build
+```
+
+Expected: Vite build exits with code 0.
+
+- [ ] **Step 11: Commit**
+
+```bash
+git add frontend/src/composables/useProfileCheckIn.js frontend/src/composables/useProfileCalendar.js frontend/src/composables/__tests__ frontend/src/views/client/ProfilePage.vue
+git commit -m "refactor(profile): extract check-in and calendar composables"
+```
+
+---
+
+### Task 2: Extract ProfileHeaderPanel (inlines avatar + blur text + bottle + streak card)
+
+**Files:**
+
+- Create: `frontend/src/components/client/profile/ProfileHeaderPanel.vue`
+- Modify: `frontend/src/views/client/ProfilePage.vue`
+
+- [ ] **Step 1: Create `ProfileHeaderPanel.vue`**
+
+Move the entire `.profile-header` section from `ProfilePage.vue` into `ProfileHeaderPanel.vue`. The panel inlines 4 sub-blocks: avatar (validation + FileReader + `localStorage.userAvatar`), blur text (IntersectionObserver + character highlighting), level bottle (markup + CSS + keyframes), streak card (markup + CSS + keyframes).
+
+Use this script contract:
+
+```vue
+<script setup>
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+
+const AVATAR_STORAGE_KEY = "userAvatar";
+const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
+
+const props = defineProps({
+  profile: { type: Object, required: true },
+  guardianDays: { type: Number, required: true },
+  levelProgress: { type: Number, required: true },
+  isGuardianDaysUpdating: { type: Boolean, required: true },
+  streakDays: { type: Number, required: true },
+  hasCheckedInToday: { type: Boolean, required: true },
+  isStreakAnimating: { type: Boolean, required: true },
+  showDebugReset: { type: Boolean, default: false },
+});
+
+const emit = defineEmits(["check-in", "reset-check-in"]);
+
+// Avatar
+const avatarUrl = ref(localStorage.getItem(AVATAR_STORAGE_KEY) || null);
+const avatarFileInput = ref(null);
+
+function triggerAvatarUpload() {
+  avatarFileInput.value?.click();
+}
+
+function handleAvatarChange(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  if (!file.type.startsWith("image/")) {
+    alert("请选择图片文件");
+    return;
+  }
+
+  if (file.size > MAX_AVATAR_BYTES) {
+    alert("图片大小不能超过5MB");
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const base64 = e.target.result;
+    avatarUrl.value = base64;
+    localStorage.setItem(AVATAR_STORAGE_KEY, base64);
+  };
+  reader.readAsDataURL(file);
+}
+
+// Blur text
+const blurMessageRef = ref(null);
+const blurTextInView = ref(true);
+let blurTextObserver = null;
+
+const blurTextContent = `你已通过回收行动累计为地球守护了 ${props.guardianDays} 天。感谢你的每一份坚持。`;
+
+const blurTextElements = computed(() => {
+  const text = blurTextContent;
+  const highlight = String(props.guardianDays);
+  const highlightIndex = text.indexOf(highlight);
+  return text.split("").map((char, index) => ({
+    char,
+    isHighlighted: highlightIndex >= 0 && index >= highlightIndex && index < highlightIndex + highlight.length,
+  }));
+});
+
+onMounted(() => {
+  if (!blurMessageRef.value || typeof IntersectionObserver === "undefined") return;
+  blurTextObserver = new IntersectionObserver(
+    ([entry]) => {
+      blurTextInView.value = entry.isIntersecting;
+    },
+    { threshold: 0.1, rootMargin: "0px" },
+  );
+  blurTextObserver.observe(blurMessageRef.value);
+});
+
+onBeforeUnmount(() => {
+  blurTextObserver?.disconnect();
+});
+
+// Bottle hover
+const isBottleHovered = ref(false);
+</script>
+```
+
+Template rules:
+
+- Root is `<section class="profile-header">` with two children: `.header-left` (avatar + profile meta) and `.header-right` (bottle + streak card).
+- Avatar: `.avatar-image` div calls `triggerAvatarUpload`. Hidden `<input ref="avatarFileInput" type="file" accept="image/*" @change="handleAvatarChange" class="avatar-input" />` after the image div.
+- Profile message: `<p ref="blurMessageRef" class="profile-message" :class="{ 'is-blurred': !blurTextInView }">` with each character in `<span class="profile-message-char" :class="{ 'is-highlighted': item.isHighlighted }">{{ item.char }}</span>`.
+- Level bottle: preserve cap/neck/body/liquid/wave/bubble/reflection markup with `:style="{ height: levelProgress + '%' }"` on `.bottle-liquid` and `@mouseenter="isBottleHovered = true"` / `@mouseleave="isBottleHovered = false"` on `.bottle-container`.
+- Streak card: `<button class="streak-btn" :class="{ 'is-checked': hasCheckedInToday }" @click="emit('check-in')">打卡</button>`. Debug reset: `<button v-if="showDebugReset" class="streak-reset" @click="emit('reset-check-in')">重置</button>`.
+
+CSS to move (preserve verbatim from `ProfilePage.vue`):
+
+- `.profile-header` / `.header-left` / `.header-right`
+- `.avatar-container` / `.avatar-image` / `.avatar-input` (hide) / `.avatar-upload` (if any) / `.avatar-badge`
+- `.profile-meta` / `.profile-name` / `.profile-role` / `.profile-id`
+- `.profile-message` / `.profile-message.is-blurred .profile-message-char:not(.is-highlighted)` (filter: blur) / `.profile-message-char` / `.profile-message-char.is-highlighted`
+- `.bottle-container` / `.bottle-cap` / `.bottle-neck` / `.bottle-body` / `.bottle-liquid` / `.bottle-tooltip` / `.bottle-tooltip-label` / `.bottle-tooltip-progress` (rename from `.tooltip-label` / `.tooltip-progress`)
+- `.wave` / `.bubble` / `.glass-reflection`
+- All bottle keyframes: `tooltipSlideDown`, `intensiveWave1` through `intensiveWave4`, `fastBubbleRise1` through `fastBubbleRise4`, `reflectionShimmer`
+- `.compact-streak` / `.streak-icon` / `.streak-info` / `.streak-label` / `.streak-days` / `.streak-btn` / `.streak-btn.is-checked` / `.streak-reset`
+- All streak keyframes: `flameFlicker` (or whatever name the original file uses)
+- `@media (prefers-reduced-motion: reduce) { .profile-message-char / .bottle-* / .streak-* }` rules that target inlined sub-blocks
+
+Keep `page-level @media` (e.g., `≤ 1200px` header layout flip) in `ProfilePage.vue` — it coordinates across panels, not header-internal.
+
+- [ ] **Step 2: Wire `ProfileHeaderPanel` into `ProfilePage.vue`**
+
+Add import:
+
+```js
+import ProfileHeaderPanel from "@/components/client/profile/ProfileHeaderPanel.vue";
+```
+
+Replace the `<section class="profile-header">...</section>` block in `ProfilePage.vue` template with:
+
+```vue
+<ProfileHeaderPanel
+  :profile="profile"
+  :guardian-days="guardianDays"
+  :level-progress="levelProgress"
+  :is-guardian-days-updating="isGuardianDaysUpdating"
+  :streak-days="streakDays"
+  :has-checked-in-today="hasCheckedInToday"
+  :is-streak-animating="isStreakAnimating"
+  @check-in="handleCheckIn"
+  @reset-check-in="resetCheckInForTesting"
+/>
+```
+
+Pass `showDebugReset: false` by default; if the original `ProfilePage.vue` exposed the reset button, set it to `true` here. The page-level handler is `resetCheckInForTesting` (or `() => {}` if not wired — verify against the original markup).
+
+- [ ] **Step 3: Build**
+
+Run:
+
+```bash
+cd frontend
+npm run build
+```
+
+Expected: Vite build exits with code 0.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add frontend/src/components/client/profile/ProfileHeaderPanel.vue frontend/src/views/client/ProfilePage.vue
+git commit -m "refactor(profile): extract header panel with inlined avatar/blur/bottle/streak"
+```
+
+---
+
+### Task 3: Extract ProfileImpactDashboard (inlines 2 metric cards + generate helpers)
+
+**Files:**
+
+- Create: `frontend/src/components/client/profile/ProfileImpactDashboard.vue`
+- Modify: `frontend/src/views/client/ProfilePage.vue`
+
+- [ ] **Step 1: Create `ProfileImpactDashboard.vue`**
+
+Move the entire `.impact-dashboard` section from `ProfilePage.vue` into `ProfileImpactDashboard.vue`. The panel inlines `selectedPeriod` ref + `energyData` / `co2Data` computed + `generateRandomBars` / `generateLineChartPoints` / `generateLinePath` helpers (the 2 metric cards are rendered via `v-for` over a local array to avoid template duplication).
+
+Use this script contract:
+
+```vue
+<script setup>
+import { computed, ref } from "vue";
+
+const props = defineProps({
+  points: { type: Number, required: true },
+});
+
+const emit = defineEmits(["update:selected-period"]);
+
+const selectedPeriod = ref("本月");
+
+const metricsConfig = [
+  {
+    key: "energy",
+    label: "已节约能源",
+    accentColor: "#006418",
+    gradientId: "energyGradient",
+    formatTooltip: (value) => `${value} kWh`,
+  },
+  {
+    key: "co2",
+    label: "减少二氧化碳",
+    accentColor: "#006418",
+    gradientId: "co2Gradient",
+    formatTooltip: (value) => `${(value * 0.15).toFixed(1)} kg`,
+  },
+];
+
+function periodDatasets(period, baseValue, baseUnit, baseTrend, pointScale) {
+  if (period === "本周") {
+    return {
+      value: baseValue.week,
+      unit: baseUnit,
+      trend: baseTrend.week,
+      chartType: "bar",
+      bars: generateRandomBars(7),
+      labels: ["周一", "周二", "周三", "周四", "周五", "周六", "周日"],
+    };
+  }
+  if (period === "本月") {
+    return {
+      value: baseValue.month,
+      unit: baseUnit,
+      trend: baseTrend.month,
+      chartType: "bar",
+      bars: generateRandomBars(30),
+      labels: Array.from({ length: 30 }, (_, i) => `${i + 1}日`),
+    };
+  }
+  return {
+    value: baseValue.quarter,
+    unit: baseUnit,
+    trend: baseTrend.quarter,
+    chartType: "line",
+    points: generateLineChartPoints(12),
+    labels: ["第1周", "第2周", "第3周", "第4周", "第5周", "第6周", "第7周", "第8周", "第9周", "第10周", "第11周", "第12周"],
+  };
+}
+
+const energyData = computed(() => periodDatasets(selectedPeriod.value, { week: 458, month: 1842, quarter: 5526 }, "kWh", { week: "+5.2%", month: "+8.3%", quarter: "+12.1%" }));
+const co2Data = computed(() => periodDatasets(selectedPeriod.value, { week: 12.4, month: 48.6, quarter: 145.8 }, "kg", { week: "+3.8%", month: "+6.5%", quarter: "+9.7%" }));
+
+const metricCards = computed(() => [
+  { config: metricsConfig[0], data: energyData.value },
+  { config: metricsConfig[1], data: co2Data.value },
+]);
+
+function generateRandomBars(count) {
+  const bars = [];
+  const activeCount = Math.floor(count * 0.3);
+  const activeIndices = new Set();
+
+  while (activeIndices.size < activeCount) {
+    activeIndices.add(Math.floor(Math.random() * count));
+  }
+
+  for (let i = 0; i < count; i++) {
+    const height = Math.floor(Math.random() * 60) + 40;
+    const active = activeIndices.has(i);
+    bars.push({
+      height,
+      active,
+      value: active ? Math.floor(height * 0.8) : Math.floor(height * 0.5),
+    });
+  }
+
+  return bars;
+}
+
+function generateLineChartPoints(count) {
+  const points = [];
+  let lastValue = 50;
+
+  for (let i = 0; i < count; i++) {
+    const change = (Math.random() - 0.3) * 20;
+    lastValue = Math.max(30, Math.min(100, lastValue + change));
+    points.push({
+      x: (i / (count - 1)) * 100,
+      y: 100 - lastValue,
+      value: Math.floor(lastValue),
+    });
+  }
+
+  return points;
+}
+
+function generateLinePath(points) {
+  if (points.length === 0) return "";
+  let path = `M ${points[0].x} ${points[0].y}`;
+  for (let i = 1; i < points.length; i++) {
+    path += ` L ${points[i].x} ${points[i].y}`;
+  }
+  return path;
+}
+</script>
+```
+
+Template rules:
+
+- Root is `<section class="impact-dashboard">`.
+- Period tabs: 3 buttons for `本周` / `本月` / `季度` with `@click="emit('update:selected-period', label)"` and `:class="{ active: selectedPeriod === label }"`.
+- Metric cards: `<div v-for="card in metricCards" :key="card.config.key" class="metric-card">` with header (`.metric-label` + `.metric-trend`), value (`.metric-value` + `.metric-unit`), chart (bar or line via `v-if="card.data.chartType === 'bar'"`), and tooltip. Hover state: `hoveredBarIndex` / `hoveredPointIndex` are scoped inside the v-for via a tiny inline helper or by using `data-index` + DOM event delegation — simplest is a `ref` Map of `Set<index>` keyed by card key.
+- Points card: `.metric-value.points` block with `{{ points }}`.
+- Rewards banner: `<div class="rewards-banner">...</div>` (preserve markup).
+
+CSS to move (preserve verbatim):
+
+- `.impact-dashboard` / `.impact-dashboard-content` / `.period-tabs` / `.period-tab` / `.period-tab.active`
+- `.metrics-grid`
+- `.metric-card` / `.metric-header` / `.metric-label` / `.metric-trend` / `.metric-value` / `.metric-unit` / `.metric-value.points`
+- `.mini-chart` / `.bar` / `.bar.active` / `.bar-tooltip`
+- `.line-chart` / `.line-chart-area` / `.line-tooltip`
+- `linearGradient` defs (if any are inline `<defs>` in template, keep them; otherwise in CSS)
+- `.rewards-banner`
+- Keyframe `tooltipFadeIn` (chart tooltip)
+
+- [ ] **Step 2: Wire `ProfileImpactDashboard` into `ProfilePage.vue`**
+
+Add import:
+
+```js
+import ProfileImpactDashboard from "@/components/client/profile/ProfileImpactDashboard.vue";
+```
+
+Replace the `.impact-dashboard` block in template with:
+
+```vue
+<ProfileImpactDashboard
+  :points="profile?.points ?? 0"
+  @update:selected-period="() => {}"
+/>
+```
+
+The `@update:selected-period` handler is a no-op in the page (the panel owns `selectedPeriod` internally now). If the original `ProfilePage.vue` synced period to `localStorage` or to other state, add the sync logic here. By default, the panel owns the period state and re-emits on tab click; the page just listens and discards.
+
+- [ ] **Step 3: Build**
+
+Run:
+
+```bash
+cd frontend
+npm run build
+```
+
+Expected: Vite build exits with code 0.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add frontend/src/components/client/profile/ProfileImpactDashboard.vue frontend/src/views/client/ProfilePage.vue
+git commit -m "refactor(profile): extract impact dashboard with inlined metric cards"
+```
+
+---
+
+### Task 4: Extract 3 Smaller Panels (Calendar / Alert / BottomSections)
+
+**Files:**
+
+- Create: `frontend/src/components/client/profile/ProfileCalendarSection.vue`
+- Create: `frontend/src/components/client/profile/ProfileCheckInAlert.vue`
+- Create: `frontend/src/components/client/profile/ProfileBottomSectionsPanel.vue`
+- Modify: `frontend/src/views/client/ProfilePage.vue`
+
+- [ ] **Step 1: Create `ProfileCalendarSection.vue`**
+
+Move the entire `.calendar-section` from `ProfilePage.vue` into `ProfileCalendarSection.vue`. Use this script contract:
 
 ```vue
 <script setup>
@@ -901,350 +953,11 @@ Month buttons:
 <button class="nav-btn" @click="emit('change-month', 1)">›</button>
 ```
 
-- [ ] **Step 5: Wire calendar composable and component into `ProfilePage.vue`**
+Render the calendar grid with `<div v-for="(day, i) in calendarDays" :key="i" :class="['calendar-day', day.empty && 'is-empty', day.isToday && 'is-today', highlightedDay === i && 'is-highlighted', day.intensity && `intensity-${day.intensity}`]">` — preserve all the original class logic and tooltip content verbatim.
 
-Add imports:
+CSS to move: `.calendar-section` / `.calendar-controls` / `.month-text` / `.nav-btn` / `.calendar-legend` / `.calendar-weekdays` / `.calendar-grid` / `.calendar-day` (all variants: empty, today, highlighted, intensity-1/2/3) / `.calendar-day-tooltip` / `.calendar-insight` / keyframes for highlight pulse.
 
-```js
-import { useProfileCalendar } from "@/composables/useProfileCalendar";
-import ProfileCalendarSection from "@/components/client/profile/ProfileCalendarSection.vue";
-```
-
-Add setup:
-
-```js
-const {
-  calendarDays,
-  highlightedDay,
-  setCalendarSectionRef,
-  monthText,
-  initializeCalendar,
-  changeMonth,
-  highlightToday,
-} = useProfileCalendar();
-
-function handleCalendarReady(el) {
-  setCalendarSectionRef(el);
-}
-```
-
-Replace the calendar section with:
-
-```vue
-<ProfileCalendarSection
-  :calendar-days="calendarDays"
-  :month-text="monthText"
-  :highlighted-day="highlightedDay"
-  @ready="handleCalendarReady"
-  @change-month="changeMonth"
-/>
-```
-
-Remove local `currentMonth`, `calendarDays`, `orderMap`, `calendarSectionRef`, `highlightedDay`, `generateCalendar`, `changeMonth`, `monthText`, and `scrollToCalendarAndHighlight`.
-
-- [ ] **Step 6: Run focused test and build**
-
-Run:
-
-```bash
-cd frontend
-npm run test -- useProfileCalendar
-npm run build
-```
-
-Expected: the focused Vitest file passes and Vite build exits with code 0.
-
-- [ ] **Step 7: Commit**
-
-```bash
-git add frontend/src/composables/useProfileCalendar.js frontend/src/composables/__tests__/useProfileCalendar.test.js frontend/src/components/client/profile/ProfileCalendarSection.vue frontend/src/views/client/ProfilePage.vue
-git commit -m "refactor(profile): extract calendar logic"
-```
-
----
-
-### Task 5: Extract Data Loading Logic
-
-**Files:**
-
-- Create: `frontend/src/composables/useProfileData.js`
-- Modify: `frontend/src/views/client/ProfilePage.vue`
-
-- [ ] **Step 1: Create `useProfileData.js`**
-
-Create `frontend/src/composables/useProfileData.js`:
-
-```js
-import { ref } from "vue";
-import { fetchProfileData } from "@/mock/clientApi";
-import { fetchCalendarWithOrders, fetchRealDate } from "@/mock/timeApi";
-
-export function useProfileData({ onLoaded } = {}) {
-  const loading = ref(true);
-  const errorText = ref("");
-  const profile = ref(null);
-
-  async function loadProfile() {
-    loading.value = true;
-    errorText.value = "";
-
-    try {
-      const [profileData, realDate] = await Promise.all([
-        fetchProfileData(),
-        fetchRealDate(),
-      ]);
-      const calendarDate = realDate || {
-        year: new Date().getFullYear(),
-        month: new Date().getMonth(),
-        day: new Date().getDate(),
-      };
-      const ordersData = await fetchCalendarWithOrders(calendarDate.year, calendarDate.month);
-
-      profile.value = profileData;
-      onLoaded?.({ realDate: calendarDate, ordersData });
-    } catch {
-      errorText.value = "个人信息加载失败，请稍后重试。";
-    } finally {
-      loading.value = false;
-    }
-  }
-
-  return {
-    loading,
-    errorText,
-    profile,
-    loadProfile,
-  };
-}
-```
-
-- [ ] **Step 2: Wire `ProfilePage.vue` to `useProfileData`**
-
-Add import:
-
-```js
-import { useProfileData } from "@/composables/useProfileData";
-```
-
-Add setup after calendar/check-in functions exist:
-
-```js
-const { loading, errorText, profile, loadProfile } = useProfileData({
-  onLoaded({ realDate, ordersData }) {
-    initializeCalendar(realDate, ordersData);
-    checkTodayCheckIn();
-  },
-});
-```
-
-Remove local `loading`, `errorText`, `profile`, local `loadProfile`, and direct imports of `fetchProfileData`, `fetchRealDate`, and `fetchCalendarWithOrders` from `ProfilePage.vue`.
-
-- [ ] **Step 3: Build**
-
-Run:
-
-```bash
-cd frontend
-npm run build
-```
-
-Expected: Vite build exits with code 0.
-
-- [ ] **Step 4: Commit**
-
-```bash
-git add frontend/src/composables/useProfileData.js frontend/src/views/client/ProfilePage.vue
-git commit -m "refactor(profile): extract profile data loading"
-```
-
----
-
-### Task 6: Extract Check-In Logic and Check-In UI
-
-**Files:**
-
-- Create: `frontend/src/composables/useProfileCheckIn.js`
-- Create: `frontend/src/composables/__tests__/useProfileCheckIn.test.js`
-- Create: `frontend/src/components/client/profile/ProfileStreakCard.vue`
-- Create: `frontend/src/components/client/profile/ProfileCheckInAlert.vue`
-- Modify: `frontend/src/views/client/ProfilePage.vue`
-
-- [ ] **Step 1: Write check-in composable tests**
-
-Create `frontend/src/composables/__tests__/useProfileCheckIn.test.js`:
-
-```js
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useProfileCheckIn } from "../useProfileCheckIn";
-
-describe("useProfileCheckIn", () => {
-  beforeEach(() => {
-    localStorage.clear();
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date(2026, 6, 1, 9, 0, 0));
-  });
-
-  it("reads guardian days from localStorage", () => {
-    localStorage.setItem("guardianDays", "420");
-
-    const checkIn = useProfileCheckIn();
-
-    expect(checkIn.guardianDays.value).toBe(420);
-  });
-
-  it("detects today's existing check-in", () => {
-    localStorage.setItem("lastCheckInDate", new Date().toDateString());
-    const checkIn = useProfileCheckIn();
-
-    checkIn.checkTodayCheckIn();
-
-    expect(checkIn.hasCheckedInToday.value).toBe(true);
-  });
-
-  it("increments guardian days once on a successful check-in", () => {
-    const checkIn = useProfileCheckIn();
-
-    const result = checkIn.triggerCheckIn();
-
-    expect(result).toEqual({ checkedIn: true });
-    expect(checkIn.guardianDays.value).toBe(366);
-    expect(localStorage.getItem("guardianDays")).toBe("366");
-    expect(checkIn.hasCheckedInToday.value).toBe(true);
-  });
-
-  it("shows alert and does not increment on duplicate check-in", async () => {
-    const checkIn = useProfileCheckIn();
-    checkIn.triggerCheckIn();
-
-    const result = checkIn.triggerCheckIn();
-
-    expect(result).toEqual({ checkedIn: false });
-    expect(checkIn.guardianDays.value).toBe(366);
-    expect(checkIn.showCheckInAlert.value).toBe(true);
-    await vi.advanceTimersByTimeAsync(3000);
-    expect(checkIn.showCheckInAlert.value).toBe(false);
-  });
-
-  it("resets check-in state for hidden debug controls", () => {
-    const checkIn = useProfileCheckIn();
-    checkIn.triggerCheckIn();
-
-    checkIn.resetCheckInForTesting();
-
-    expect(localStorage.getItem("lastCheckInDate")).toBeNull();
-    expect(checkIn.hasCheckedInToday.value).toBe(false);
-  });
-});
-```
-
-- [ ] **Step 2: Run focused test and verify it fails**
-
-Run:
-
-```bash
-cd frontend
-npm run test -- useProfileCheckIn
-```
-
-Expected: test run fails because `../useProfileCheckIn` does not exist.
-
-- [ ] **Step 3: Create `useProfileCheckIn.js`**
-
-Create `frontend/src/composables/useProfileCheckIn.js`:
-
-```js
-import { ref } from "vue";
-
-const GUARDIAN_DAYS_KEY = "guardianDays";
-const LAST_CHECK_IN_KEY = "lastCheckInDate";
-
-export function useProfileCheckIn() {
-  const streakDays = ref(42);
-  const totalRecycles = ref(156);
-  const streakRecord = ref(58);
-  const isStreakAnimating = ref(false);
-  const hasCheckedInToday = ref(false);
-  const showCheckInAlert = ref(false);
-  const guardianDays = ref(parseInt(localStorage.getItem(GUARDIAN_DAYS_KEY), 10) || 365);
-  const isGuardianDaysUpdating = ref(false);
-
-  function checkTodayCheckIn() {
-    const lastCheckInDate = localStorage.getItem(LAST_CHECK_IN_KEY);
-    hasCheckedInToday.value = lastCheckInDate === new Date().toDateString();
-  }
-
-  function triggerCheckIn() {
-    if (hasCheckedInToday.value) {
-      showCheckInAlert.value = true;
-      setTimeout(() => {
-        showCheckInAlert.value = false;
-      }, 3000);
-      return { checkedIn: false };
-    }
-
-    isStreakAnimating.value = true;
-    setTimeout(() => {
-      isStreakAnimating.value = false;
-    }, 1000);
-
-    isGuardianDaysUpdating.value = true;
-    guardianDays.value++;
-    localStorage.setItem(GUARDIAN_DAYS_KEY, guardianDays.value.toString());
-    setTimeout(() => {
-      isGuardianDaysUpdating.value = false;
-    }, 600);
-
-    localStorage.setItem(LAST_CHECK_IN_KEY, new Date().toDateString());
-    hasCheckedInToday.value = true;
-
-    return { checkedIn: true };
-  }
-
-  function resetCheckInForTesting() {
-    localStorage.removeItem(LAST_CHECK_IN_KEY);
-    hasCheckedInToday.value = false;
-  }
-
-  return {
-    streakDays,
-    totalRecycles,
-    streakRecord,
-    guardianDays,
-    hasCheckedInToday,
-    isStreakAnimating,
-    isGuardianDaysUpdating,
-    showCheckInAlert,
-    checkTodayCheckIn,
-    triggerCheckIn,
-    resetCheckInForTesting,
-  };
-}
-```
-
-- [ ] **Step 4: Create `ProfileStreakCard.vue`**
-
-Move compact streak markup and CSS into `ProfileStreakCard.vue`. Use this script contract:
-
-```vue
-<script setup>
-defineProps({
-  streakDays: { type: Number, required: true },
-  hasCheckedInToday: { type: Boolean, required: true },
-  isStreakAnimating: { type: Boolean, required: true },
-  showDebugReset: { type: Boolean, default: false },
-});
-
-const emit = defineEmits(["check-in", "reset-check-in"]);
-</script>
-```
-
-Template rules:
-
-- The main button emits `check-in`.
-- The reset button is rendered only with `v-if="showDebugReset"` and emits `reset-check-in`.
-- The default user path does not render the reset button.
-
-- [ ] **Step 5: Create `ProfileCheckInAlert.vue`**
+- [ ] **Step 2: Create `ProfileCheckInAlert.vue`**
 
 Create `frontend/src/components/client/profile/ProfileCheckInAlert.vue`:
 
@@ -1266,21 +979,163 @@ defineProps({
 </template>
 ```
 
-Move `.check-in-alert`, `.alert-content`, `.alert-icon`, `.alert-message`, and alert keyframes into the component.
+CSS to move: `.check-in-alert` (fixed position) / `.alert-content` / `.alert-icon` / `.alert-message` / keyframes (slide / pulse / shake).
 
-- [ ] **Step 6: Wire check-in composable and UI into `ProfilePage.vue`**
+- [ ] **Step 3: Create `ProfileBottomSectionsPanel.vue`**
+
+Move `.tasks-section`, `.achievements-section`, `.activities-section` blocks (3 sub-sections) into one panel. Use this script contract:
+
+```vue
+<script setup>
+defineProps({
+  tasks: { type: Array, required: true },
+  achievements: { type: Array, required: true },
+  activities: { type: Array, required: true },
+});
+
+const emit = defineEmits(["view-all-achievements"]);
+</script>
+```
+
+Template structure (preserve all original markup verbatim, including Chinese text and class names):
+
+```vue
+<section class="bottom-sections">
+  <section class="tasks-section">
+    <h2 class="section-title">进行中的任务</h2>
+    <div v-for="task in tasks" :key="task.name" class="task-card">
+      <h3>{{ task.name }}</h3>
+      <p>{{ task.progressText }}</p>
+      <div class="progress-bar"><div class="progress-fill" :style="{ width: `${task.progress}%` }"></div></div>
+      <p>{{ task.reward }}</p>
+    </div>
+  </section>
+
+  <section class="achievements-section">
+    <h2 class="section-title">成就勋章</h2>
+    <div class="achievement-grid">
+      <div
+        v-for="ach in achievements"
+        :key="ach.name"
+        :class="['achievement-card', ach.unlocked ? 'unlocked' : 'locked']"
+      >
+        <span class="achievement-icon">{{ ach.icon }}</span>
+        <span>{{ ach.name }}</span>
+      </div>
+    </div>
+    <button class="btn-view-all" @click="emit('view-all-achievements')">查看全部</button>
+  </section>
+
+  <section class="activities-section">
+    <h2 class="section-title">最近动态</h2>
+    <div v-for="(item, i) in activities" :key="i" class="activity-item">
+      <span class="activity-icon">{{ item.icon }}</span>
+      <div class="activity-content">
+        <h3>{{ item.title }}</h3>
+        <p>{{ item.description }}</p>
+      </div>
+      <span :class="['activity-points', `is-${item.pointsVariant}`]">{{ item.points }}</span>
+      <span class="activity-time">{{ item.time }}</span>
+    </div>
+  </section>
+</section>
+```
+
+CSS to move: all `.tasks-section` / `.task-card` / `.progress-bar` / `.progress-fill` rules; all `.achievements-section` / `.achievement-grid` / `.achievement-card` (with `unlocked` / `locked` variants) / `.achievement-icon` / `.btn-view-all` rules; all `.activities-section` / `.activity-item` / `.activity-icon` / `.activity-content` / `.activity-points.is-positive` / `.activity-points.is-negative` / `.activity-time` rules. Also `.section-title` (shared across 3 sub-sections) lives in this panel.
+
+- [ ] **Step 4: Wire all 3 panels into `ProfilePage.vue`**
 
 Add imports:
 
 ```js
-import { useProfileCheckIn } from "@/composables/useProfileCheckIn";
-import ProfileStreakCard from "@/components/client/profile/ProfileStreakCard.vue";
+import ProfileCalendarSection from "@/components/client/profile/ProfileCalendarSection.vue";
 import ProfileCheckInAlert from "@/components/client/profile/ProfileCheckInAlert.vue";
+import ProfileBottomSectionsPanel from "@/components/client/profile/ProfileBottomSectionsPanel.vue";
 ```
 
-Add setup:
+Replace `.calendar-section` block with:
+
+```vue
+<ProfileCalendarSection
+  :calendar-days="calendarDays"
+  :month-text="monthText"
+  :highlighted-day="highlightedDay"
+  @ready="handleCalendarReady"
+  @change-month="changeMonth"
+/>
+```
+
+Inside the page-level root container (right before the bottom sections), add:
+
+```vue
+<ProfileCheckInAlert :visible="showCheckInAlert" />
+```
+
+Replace `.tasks-section` + `.achievements-section` + `.activities-section` blocks with:
+
+```vue
+<ProfileBottomSectionsPanel
+  :tasks="PROFILE_TASKS"
+  :achievements="PROFILE_ACHIEVEMENTS"
+  :activities="PROFILE_ACTIVITIES"
+  @view-all-achievements="() => {}"
+/>
+```
+
+The `@view-all-achievements` handler is a no-op (matches the original behavior — no real navigation).
+
+- [ ] **Step 5: Build**
+
+Run:
+
+```bash
+cd frontend
+npm run build
+```
+
+Expected: Vite build exits with code 0.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add frontend/src/components/client/profile/ProfileCalendarSection.vue frontend/src/components/client/profile/ProfileCheckInAlert.vue frontend/src/components/client/profile/ProfileBottomSectionsPanel.vue frontend/src/views/client/ProfilePage.vue
+git commit -m "refactor(profile): extract calendar, alert, and bottom sections panels"
+```
+
+---
+
+### Task 5: Final Page Cleanup and Verification
+
+**Files:**
+
+- Modify: `frontend/src/views/client/ProfilePage.vue`
+
+- [ ] **Step 1: Inline `loadProfile` into `ProfilePage.vue`**
+
+Remove the dependency on `useProfileData` (which we never created). The `loadProfile` async function in `ProfilePage.vue` directly imports the 3 mock fetch functions and owns `loading` / `errorText` / `profile` refs:
 
 ```js
+import { ref, computed, onMounted } from "vue";
+import { useRevealOnScroll } from "@/composables/useRevealOnScroll";
+import { useProfileCheckIn } from "@/composables/useProfileCheckIn";
+import { useProfileCalendar } from "@/composables/useProfileCalendar";
+
+import { fetchProfileData } from "@/mock/clientApi";
+import { fetchRealDate, fetchCalendarWithOrders } from "@/mock/timeApi";
+
+import ProfileHeaderPanel from "@/components/client/profile/ProfileHeaderPanel.vue";
+import ProfileCheckInAlert from "@/components/client/profile/ProfileCheckInAlert.vue";
+import ProfileCalendarSection from "@/components/client/profile/ProfileCalendarSection.vue";
+import ProfileImpactDashboard from "@/components/client/profile/ProfileImpactDashboard.vue";
+import ProfileBottomSectionsPanel from "@/components/client/profile/ProfileBottomSectionsPanel.vue";
+
+const pageRef = ref(null);
+useRevealOnScroll(pageRef);
+
+const loading = ref(true);
+const errorText = ref("");
+const profile = ref(null);
+
 const {
   streakDays,
   guardianDays,
@@ -1293,515 +1148,117 @@ const {
   resetCheckInForTesting,
 } = useProfileCheckIn();
 
+const {
+  calendarDays,
+  highlightedDay,
+  monthText,
+  setCalendarSectionRef,
+  initializeCalendar,
+  changeMonth,
+  highlightToday,
+} = useProfileCalendar();
+
+const levelProgress = computed(() => {
+  const points = profile.value?.points ?? 0;
+  return Math.min(100, Math.max(0, (points % 1000) / 10));
+});
+
+async function loadProfile() {
+  loading.value = true;
+  errorText.value = "";
+  try {
+    const [profileData, realDate] = await Promise.all([
+      fetchProfileData(),
+      fetchRealDate(),
+    ]);
+    const calendarDate = realDate || {
+      year: new Date().getFullYear(),
+      month: new Date().getMonth(),
+      day: new Date().getDate(),
+    };
+    const ordersData = await fetchCalendarWithOrders(calendarDate.year, calendarDate.month);
+    profile.value = profileData;
+    initializeCalendar(calendarDate, ordersData);
+    checkTodayCheckIn();
+  } catch {
+    errorText.value = "个人信息加载失败，请稍后重试。";
+  } finally {
+    loading.value = false;
+  }
+}
+
 async function handleCheckIn() {
   const result = triggerCheckIn();
   if (result?.checkedIn) {
     await highlightToday();
   }
 }
-```
 
-Replace the compact streak block with:
-
-```vue
-<ProfileStreakCard
-  :streak-days="streakDays"
-  :has-checked-in-today="hasCheckedInToday"
-  :is-streak-animating="isStreakAnimating"
-  @check-in="handleCheckIn"
-  @reset-check-in="resetCheckInForTesting"
-/>
-```
-
-Replace alert markup with:
-
-```vue
-<ProfileCheckInAlert :visible="showCheckInAlert" />
-```
-
-- [ ] **Step 7: Run focused test and build**
-
-Run:
-
-```bash
-cd frontend
-npm run test -- useProfileCheckIn
-npm run build
-```
-
-Expected: the focused Vitest file passes and Vite build exits with code 0.
-
-- [ ] **Step 8: Commit**
-
-```bash
-git add frontend/src/composables/useProfileCheckIn.js frontend/src/composables/__tests__/useProfileCheckIn.test.js frontend/src/components/client/profile/ProfileStreakCard.vue frontend/src/components/client/profile/ProfileCheckInAlert.vue frontend/src/views/client/ProfilePage.vue
-git commit -m "refactor(profile): extract check-in logic"
-```
-
----
-
-### Task 7: Extract Blur Text and Header Panel
-
-**Files:**
-
-- Create: `frontend/src/composables/useBlurText.js`
-- Create: `frontend/src/composables/__tests__/useBlurText.test.js`
-- Create: `frontend/src/components/client/profile/ProfileHeaderPanel.vue`
-- Modify: `frontend/src/views/client/ProfilePage.vue`
-
-- [ ] **Step 1: Write blur text tests**
-
-Create `frontend/src/composables/__tests__/useBlurText.test.js`:
-
-```js
-import { describe, expect, it, vi } from "vitest";
-import { ref } from "vue";
-import { useBlurText } from "../useBlurText";
-
-describe("useBlurText", () => {
-  it("marks highlighted characters", () => {
-    const days = ref(365);
-    const blur = useBlurText({
-      text: () => `你已通过回收行动累计为地球守护了 ${days.value} 天。感谢你的每一份坚持。`,
-      highlightText: () => days.value.toString(),
-    });
-
-    const highlighted = blur.blurTextElements.value.filter((item) => item.isHighlighted);
-
-    expect(highlighted.map((item) => item.char).join("")).toBe("365");
-  });
-
-  it("registers an observer when a DOM node is provided", () => {
-    const observe = vi.fn();
-    const disconnect = vi.fn();
-    vi.stubGlobal("IntersectionObserver", vi.fn(() => ({ observe, disconnect })));
-    const blur = useBlurText({ text: "abc", highlightText: "b" });
-    const el = document.createElement("p");
-
-    blur.setBlurTextRef(el);
-
-    expect(observe).toHaveBeenCalledWith(el);
-  });
-});
-```
-
-- [ ] **Step 2: Run focused test and verify it fails**
-
-Run:
-
-```bash
-cd frontend
-npm run test -- useBlurText
-```
-
-Expected: test run fails because `../useBlurText` does not exist.
-
-- [ ] **Step 3: Create `useBlurText.js`**
-
-Create `frontend/src/composables/useBlurText.js`:
-
-```js
-import { computed, onBeforeUnmount, ref, unref } from "vue";
-
-function resolveInput(value) {
-  return typeof value === "function" ? value() : unref(value);
-}
-
-export function useBlurText({ text, highlightText }) {
-  const blurTextRef = ref(null);
-  const blurTextInView = ref(true);
-  let blurTextObserver = null;
-
-  const blurTextElements = computed(() => {
-    const resolvedText = String(resolveInput(text) || "");
-    const resolvedHighlight = String(resolveInput(highlightText) || "");
-    const highlightIndex = resolvedHighlight ? resolvedText.indexOf(resolvedHighlight) : -1;
-
-    return resolvedText.split("").map((char, index) => ({
-      char,
-      isHighlighted: highlightIndex >= 0 && index >= highlightIndex && index < highlightIndex + resolvedHighlight.length,
-    }));
-  });
-
-  function setBlurTextRef(el) {
-    blurTextObserver?.disconnect();
-    blurTextRef.value = el;
-    if (!el || typeof IntersectionObserver === "undefined") return;
-
-    blurTextObserver = new IntersectionObserver(
-      ([entry]) => {
-        blurTextInView.value = entry.isIntersecting;
-      },
-      { threshold: 0.1, rootMargin: "0px" },
-    );
-    blurTextObserver.observe(el);
-  }
-
-  onBeforeUnmount(() => {
-    blurTextObserver?.disconnect();
-  });
-
-  return {
-    blurTextRef,
-    blurTextInView,
-    blurTextElements,
-    setBlurTextRef,
-  };
-}
-```
-
-- [ ] **Step 4: Create `ProfileHeaderPanel.vue`**
-
-Move profile header markup and CSS into `ProfileHeaderPanel.vue`. Use this script contract:
-
-```vue
-<script setup>
-import { onMounted, ref } from "vue";
-import ProfileLevelBottle from "./ProfileLevelBottle.vue";
-import ProfileStreakCard from "./ProfileStreakCard.vue";
-
-defineProps({
-  profile: { type: Object, required: true },
-  avatarUrl: { type: String, default: null },
-  guardianDays: { type: Number, required: true },
-  levelProgress: { type: Number, required: true },
-  blurTextElements: { type: Array, required: true },
-  blurTextInView: { type: Boolean, required: true },
-  isGuardianDaysUpdating: { type: Boolean, required: true },
-  streakDays: { type: Number, required: true },
-  hasCheckedInToday: { type: Boolean, required: true },
-  isStreakAnimating: { type: Boolean, required: true },
-  showDebugReset: { type: Boolean, default: false },
-});
-
-const emit = defineEmits(["avatar-change", "check-in", "reset-check-in", "blur-ready"]);
-const avatarFileInput = ref(null);
-const blurMessageRef = ref(null);
-
-function triggerAvatarUpload() {
-  avatarFileInput.value?.click();
+function handleCalendarReady(el) {
+  setCalendarSectionRef(el);
 }
 
 onMounted(() => {
-  emit("blur-ready", blurMessageRef.value);
+  loadProfile();
 });
-</script>
 ```
 
-Template rules:
-
-- The avatar `.avatar-image` calls `triggerAvatarUpload`.
-- The hidden file input emits `avatar-change` with `$event`.
-- The profile message `ref` is `blurMessageRef`.
-- Character class uses `item.isHighlighted` instead of old `item.isDays`.
-- Use `<ProfileLevelBottle :level-progress="levelProgress" />`.
-- Use `<ProfileStreakCard ... @check-in="emit('check-in')" @reset-check-in="emit('reset-check-in')" />`.
-
-- [ ] **Step 5: Wire header and blur composable into `ProfilePage.vue`**
-
-Add imports:
-
-```js
-import { useBlurText } from "@/composables/useBlurText";
-import ProfileHeaderPanel from "@/components/client/profile/ProfileHeaderPanel.vue";
-```
-
-Add setup:
-
-```js
-const {
-  blurTextInView,
-  blurTextElements,
-  setBlurTextRef,
-} = useBlurText({
-  text: () => `你已通过回收行动累计为地球守护了 ${guardianDays.value} 天。感谢你的每一份坚持。`,
-  highlightText: () => guardianDays.value.toString(),
-});
-
-function handleBlurReady(el) {
-  setBlurTextRef(el);
-}
-```
-
-Replace the header section with:
-
-```vue
-<ProfileHeaderPanel
-  :profile="profile"
-  :avatar-url="avatarUrl"
-  :guardian-days="guardianDays"
-  :level-progress="levelProgress"
-  :blur-text-elements="blurTextElements"
-  :blur-text-in-view="blurTextInView"
-  :is-guardian-days-updating="isGuardianDaysUpdating"
-  :streak-days="streakDays"
-  :has-checked-in-today="hasCheckedInToday"
-  :is-streak-animating="isStreakAnimating"
-  @avatar-change="handleAvatarChange"
-  @check-in="handleCheckIn"
-  @reset-check-in="resetCheckInForTesting"
-  @blur-ready="handleBlurReady"
-/>
-```
-
-Remove `avatarFileInput`, `triggerAvatarUpload`, `useTemplateRef`, `blurTextRef`, `blurTextObserver`, `blurTextContent`, `blurTextElements`, and local `onBeforeUnmount` blur cleanup from `ProfilePage.vue`.
-
-- [ ] **Step 6: Run focused test and build**
+- [ ] **Step 2: Confirm no `useProfileData` / `useProfileAvatar` / `useProfileImpactMetrics` / `useBlurText` references remain in `ProfilePage.vue`**
 
 Run:
 
 ```bash
 cd frontend
-npm run test -- useBlurText
-npm run build
+grep -nE "useProfileData|useProfileAvatar|useProfileImpactMetrics|useBlurText|useTemplateRef" src/views/client/ProfilePage.vue
 ```
 
-Expected: the focused Vitest file passes and Vite build exits with code 0.
+Expected: no output (no matches).
 
-- [ ] **Step 7: Commit**
-
-```bash
-git add frontend/src/composables/useBlurText.js frontend/src/composables/__tests__/useBlurText.test.js frontend/src/components/client/profile/ProfileHeaderPanel.vue frontend/src/views/client/ProfilePage.vue
-git commit -m "refactor(profile): extract profile header"
-```
-
----
-
-### Task 8: Extract Impact Dashboard and Static Panels
-
-**Files:**
-
-- Create: `frontend/src/components/client/profile/ProfileImpactDashboard.vue`
-- Create: `frontend/src/components/client/profile/ProfileTasksPanel.vue`
-- Create: `frontend/src/components/client/profile/ProfileAchievementsPanel.vue`
-- Create: `frontend/src/components/client/profile/ProfileActivityList.vue`
-- Modify: `frontend/src/views/client/ProfilePage.vue`
-
-- [ ] **Step 1: Create `ProfileImpactDashboard.vue`**
-
-Use this script contract:
-
-```vue
-<script setup>
-import ProfileMetricCard from "./ProfileMetricCard.vue";
-
-defineProps({
-  selectedPeriod: { type: String, required: true },
-  energyData: { type: Object, required: true },
-  co2Data: { type: Object, required: true },
-  points: { type: Number, required: true },
-  generateLinePath: { type: Function, required: true },
-});
-
-const emit = defineEmits(["update:selected-period"]);
-</script>
-```
-
-Template rules:
-
-- Render tabs for `本周`, `本月`, `季度`.
-- Each tab emits `update:selected-period` with its label.
-- Render the two `ProfileMetricCard` instances with the exact props from Task 3.
-- Move the points metric card and rewards banner into this component.
-
-- [ ] **Step 2: Create `ProfileTasksPanel.vue`**
-
-Use this script contract:
-
-```vue
-<script setup>
-defineProps({
-  tasks: { type: Array, required: true },
-});
-</script>
-```
-
-Template rules:
-
-- Use `task.name`, `task.progressText`, `task.progress`, and `task.reward`.
-- Preserve section title `进行中的任务`.
-- Use `:style="{ width: `${task.progress}%` }"` for `.progress-fill`.
-
-- [ ] **Step 3: Create `ProfileAchievementsPanel.vue`**
-
-Use this script contract:
-
-```vue
-<script setup>
-defineProps({
-  achievements: { type: Array, required: true },
-});
-
-const emit = defineEmits(["view-all"]);
-</script>
-```
-
-Template rules:
-
-- Card class is `["achievement-card", achievement.unlocked ? "unlocked" : "locked"]`.
-- Preserve section title `成就勋章`.
-- The button emits `view-all`.
-
-- [ ] **Step 4: Create `ProfileActivityList.vue`**
-
-Use this script contract:
-
-```vue
-<script setup>
-defineProps({
-  activities: { type: Array, required: true },
-});
-</script>
-```
-
-Template rules:
-
-- Use `activity.icon`, `activity.title`, `activity.description`, `activity.points`, `activity.pointsVariant`, and `activity.time`.
-- Preserve section title `最近动态`.
-
-- [ ] **Step 5: Wire components and constants into `ProfilePage.vue`**
-
-Add imports:
-
-```js
-import ProfileImpactDashboard from "@/components/client/profile/ProfileImpactDashboard.vue";
-import ProfileTasksPanel from "@/components/client/profile/ProfileTasksPanel.vue";
-import ProfileAchievementsPanel from "@/components/client/profile/ProfileAchievementsPanel.vue";
-import ProfileActivityList from "@/components/client/profile/ProfileActivityList.vue";
-```
-
-Add the shared constants from this plan near other page-level constants.
-
-Replace dashboard and lower sections with:
-
-```vue
-<ProfileImpactDashboard
-  :selected-period="selectedPeriod"
-  :energy-data="energyData"
-  :co2-data="co2Data"
-  :points="profile.points"
-  :generate-line-path="generateLinePath"
-  @update:selected-period="selectedPeriod = $event"
-/>
-
-<div class="tasks-achievements-grid">
-  <ProfileTasksPanel :tasks="PROFILE_TASKS" />
-  <ProfileAchievementsPanel :achievements="PROFILE_ACHIEVEMENTS" />
-</div>
-
-<ProfileActivityList :activities="PROFILE_ACTIVITIES" />
-```
-
-- [ ] **Step 6: Move CSS into components**
-
-Move these CSS groups out of `ProfilePage.vue`:
-
-- Impact dashboard section styles into `ProfileImpactDashboard.vue`.
-- Task section styles into `ProfileTasksPanel.vue`.
-- Achievement section styles into `ProfileAchievementsPanel.vue`.
-- Activity section styles into `ProfileActivityList.vue`.
-
-Keep `.tasks-achievements-grid` in `ProfilePage.vue` because it coordinates two child components.
-
-- [ ] **Step 7: Build**
+- [ ] **Step 3: Confirm no `useBeforeUnmount` in `ProfilePage.vue`**
 
 Run:
 
 ```bash
 cd frontend
-npm run build
+grep -n "onBeforeUnmount" src/views/client/ProfilePage.vue
 ```
 
-Expected: Vite build exits with code 0.
+Expected: no output (the blur observer cleanup moved to `ProfileHeaderPanel`).
 
-- [ ] **Step 8: Commit**
-
-```bash
-git add frontend/src/components/client/profile/ProfileImpactDashboard.vue frontend/src/components/client/profile/ProfileTasksPanel.vue frontend/src/components/client/profile/ProfileAchievementsPanel.vue frontend/src/components/client/profile/ProfileActivityList.vue frontend/src/views/client/ProfilePage.vue
-git commit -m "refactor(profile): extract profile dashboard panels"
-```
-
----
-
-### Task 9: Final Page Cleanup and Verification
-
-**Files:**
-
-- Modify: `frontend/src/views/client/ProfilePage.vue`
-- Modify as needed: profile components created in earlier tasks
-
-- [ ] **Step 1: Remove unused script symbols**
-
-Run:
-
-```bash
-cd frontend
-npm run build
-```
-
-If Vue/Vite reports unused or undefined symbols, remove the unused imports/refs/computed values from `ProfilePage.vue` and the extracted components. The expected final import shape in `ProfilePage.vue` is:
-
-```js
-import { computed, onMounted, ref } from "vue";
-
-import { useRevealOnScroll } from "@/composables/useRevealOnScroll";
-import { useBlurText } from "@/composables/useBlurText";
-import { useProfileAvatar } from "@/composables/useProfileAvatar";
-import { useProfileCalendar } from "@/composables/useProfileCalendar";
-import { useProfileCheckIn } from "@/composables/useProfileCheckIn";
-import { useProfileData } from "@/composables/useProfileData";
-import { useProfileImpactMetrics } from "@/composables/useProfileImpactMetrics";
-
-import ProfileHeaderPanel from "@/components/client/profile/ProfileHeaderPanel.vue";
-import ProfileCheckInAlert from "@/components/client/profile/ProfileCheckInAlert.vue";
-import ProfileCalendarSection from "@/components/client/profile/ProfileCalendarSection.vue";
-import ProfileImpactDashboard from "@/components/client/profile/ProfileImpactDashboard.vue";
-import ProfileTasksPanel from "@/components/client/profile/ProfileTasksPanel.vue";
-import ProfileAchievementsPanel from "@/components/client/profile/ProfileAchievementsPanel.vue";
-import ProfileActivityList from "@/components/client/profile/ProfileActivityList.vue";
-```
-
-- [ ] **Step 2: Reduce `ProfilePage.vue` CSS**
+- [ ] **Step 4: Reduce `ProfilePage.vue` CSS**
 
 The final scoped style in `ProfilePage.vue` should only keep:
 
 - `.profile-page`
-- `.loading-state`
-- `.error-state`
-- `.spinner`
-- `@keyframes spin`
-- `.btn-retry`
-- `.profile-content`
-- `.tasks-achievements-grid`
-- page-level media rules that coordinate child sections
+- `.loading-state` / `.error-state` / `.spinner` + `@keyframes spin` / `.btn-retry`
+- `.profile-content` (page-level container with all panels)
+- `@media (max-width: 1200px / 768px / 480px)` page-level rules that coordinate multiple sections (header layout flip, period tabs horizontal scroll, alert width)
 
-Move any remaining component-owned classes to their component file.
+Move any remaining component-owned classes to their respective panel.
 
-- [ ] **Step 3: Check line count**
+- [ ] **Step 5: Check line count**
 
-Run:
+Run from `frontend/`:
 
 ```bash
-cd ..
-(Get-Content -Encoding UTF8 -LiteralPath 'frontend/src/views/client/ProfilePage.vue').Count
+(Get-Content -Encoding UTF8 -LiteralPath 'src/views/client/ProfilePage.vue').Count
 ```
 
-Expected: count is between 160 and 260. If it is above 260 because static constants are long, keep constants in `ProfilePage.vue` only if the page remains readable; otherwise create `frontend/src/components/client/profile/profileStaticData.js` and import `PROFILE_TASKS`, `PROFILE_ACHIEVEMENTS`, and `PROFILE_ACTIVITIES` from there.
+Expected: 160-260. The page is intentionally a bit thicker than home's 110 lines because of the 3 static constants + `loadProfile` async + `levelProgress` computed.
 
-- [ ] **Step 4: Run all composable tests and build**
+- [ ] **Step 6: Run all composable tests and build**
 
 Run:
 
 ```bash
 cd frontend
-npm run test -- useProfile
-npm run test -- useBlurText
+npm run test -- useProfileCheckIn useProfileCalendar
 npm run build
 ```
 
-Expected: both Vitest commands pass and Vite build exits with code 0.
+Expected: 8 tests pass, Vite build exits with code 0.
 
-- [ ] **Step 5: Browser verification**
+- [ ] **Step 7: Browser verification**
 
 Run the dev server:
 
@@ -1815,7 +1272,7 @@ Open the local Vite URL and verify:
 - `/profile` while logged out redirects to `/auth?redirect=/profile`.
 - Logging in with the demo credentials still returns to `/profile`.
 - `/profile` loads profile content after loading state.
-- Retry button still calls `loadProfile` when error state is forced by temporarily throwing inside `useProfileData.loadProfile`; revert the throw immediately after the check.
+- Retry button still calls `loadProfile` when error state is forced by temporarily throwing inside `loadProfile`; revert the throw immediately after the check.
 - Avatar click opens the file picker.
 - Non-image avatar selection shows `请选择图片文件`.
 - Image larger than 5 MB shows `图片大小不能超过5MB`.
@@ -1829,7 +1286,7 @@ Open the local Vite URL and verify:
 - Tasks, achievements, and recent activities match the old content.
 - Desktop width and mobile width have no obvious layout overlap.
 
-- [ ] **Step 6: Final diff review**
+- [ ] **Step 8: Final diff review**
 
 Run:
 
@@ -1841,16 +1298,19 @@ git diff -- frontend/src/views/client/ProfilePage.vue
 Expected:
 
 - `ProfilePage.vue` contains orchestration only.
-- No direct `localStorage` calls remain in `ProfilePage.vue`.
-- No direct `fetchProfileData`, `fetchRealDate`, or `fetchCalendarWithOrders` imports remain in `ProfilePage.vue`.
+- No `useProfileData` / `useProfileAvatar` / `useProfileImpactMetrics` / `useBlurText` import remains.
+- No `onBeforeUnmount` / `useTemplateRef` import remains.
+- No `localStorage.` calls remain in `ProfilePage.vue`.
 - No chart generation helpers remain in `ProfilePage.vue`.
 - No calendar generation helpers remain in `ProfilePage.vue`.
+- No avatar / blur text / bottle / streak card markup remains in `ProfilePage.vue`.
+- `PROFILE_TASKS` / `PROFILE_ACHIEVEMENTS` / `PROFILE_ACTIVITIES` constants are at the top of `ProfilePage.vue` script.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
 git add frontend/src/views/client/ProfilePage.vue frontend/src/components/client/profile frontend/src/composables
-git commit -m "refactor(profile): slim profile page"
+git commit -m "refactor(profile): slim profile page to thin orchestrator"
 ```
 
 ---
@@ -1859,17 +1319,20 @@ git commit -m "refactor(profile): slim profile page"
 
 Spec coverage:
 
-- Thin `ProfilePage.vue`: covered by Tasks 5, 7, 8, and 9.
-- Profile child components under `components/client/profile/`: covered by Tasks 3, 4, 6, 7, and 8.
-- Page-specific composables under `composables/`: covered by Tasks 1, 2, 4, 5, 6, and 7.
-- No visual redesign: every component task moves existing markup/CSS and preserves current text/classes unless the spec requested clearer tooltip names.
+- Thin `ProfilePage.vue` (160-230 lines): covered by Task 5.
+- 5 profile panels under `components/client/profile/`: covered by Tasks 2, 3, 4.
+- 2 page-specific composables under `composables/`: covered by Task 1.
+- 4 single-consumer composables inlined (`useProfileData` → view; `useProfileAvatar` / `useBlurText` → `ProfileHeaderPanel`; `useProfileImpactMetrics` → `ProfileImpactDashboard`): covered by Tasks 2, 3, 5.
+- 3 single-consumer sub-panels inlined (`ProfileLevelBottle` / `ProfileStreakCard` → `ProfileHeaderPanel`; `ProfileMetricCard` → `ProfileImpactDashboard`): covered by Tasks 2, 3.
+- 3 static list panels merged into `ProfileBottomSectionsPanel`: covered by Task 4.
+- No visual redesign: every task moves existing markup/CSS verbatim from `ProfilePage.vue`.
 - Mock API unchanged: file structure explicitly excludes mock API edits.
 - No Pinia/Vuex: no task introduces state management packages.
-- Static tasks, achievements, and activities remain static: Task 8 moves them to page constants.
-- Initial calendar month/order source consistency: Task 5 fetches orders with `calendarDate.year` and `calendarDate.month`.
-- Blur text DOM contract: Task 7 uses `blur-ready` and `setBlurTextRef`.
-- Debug reset hidden by default: Task 6 uses `showDebugReset: false`.
-- Verification: Task 9 includes tests, build, and browser checks.
+- Static tasks, achievements, and activities remain static: Tasks 4 + 5 keep them as page constants passed via props.
+- Initial calendar month/order source consistency: Task 5 step 1 fetches orders with `calendarDate.year` and `calendarDate.month` and reuses the same `calendarDate` object for `initializeCalendar`.
+- Blur text DOM contract: Task 2 uses `IntersectionObserver` inside the panel, no DOM handoff to page; cleanup in panel's own `onBeforeUnmount`.
+- Debug reset hidden by default: Task 2 uses `showDebugReset: false` default in `ProfileHeaderPanel`.
+- Verification: Task 5 includes tests, build, and browser checks.
 
 Placeholder scan:
 
@@ -1879,8 +1342,8 @@ Placeholder scan:
 
 Type consistency:
 
-- `blurTextElements` uses `{ char, isHighlighted }` in `useBlurText` and `ProfileHeaderPanel`.
+- `blurTextElements` uses `{ char, isHighlighted }` in `ProfileHeaderPanel`.
 - Check-in success path returns `{ checkedIn: true }` and duplicate path returns `{ checkedIn: false }`.
 - Calendar DOM handoff uses `ready(el)` from `ProfileCalendarSection` and `setCalendarSectionRef(el)` in `useProfileCalendar`.
-- Header DOM handoff uses `blur-ready(el)` from `ProfileHeaderPanel` and `setBlurTextRef(el)` in `useBlurText`.
 - Impact dashboard period updates use `update:selected-period`.
+- Bottom sections uses `view-all-achievements` for the achievements "view all" button.
