@@ -490,12 +490,13 @@ onMounted(loadOrders);
 
 CSS 按 markup 归属移动：
 
-- `OrdersPage.vue`: `.orders-page`、`.page-width`、`.content-grid`（page 级两栏布局）、`.state-error`、fade / slide-right transition keyframes、`.drawer-overlay` / `.progress-drawer` / `.drawer-content` / `.drawer-header` / `.drawer-title` / `.btn-close` / `.drawer-basic-info` / `.info-label` / `.info-value` / `.drawer-timeline` / `.timeline-line` / `.timeline-items` / `.timeline-item` / `.timeline-icon` / `.timeline-content` / `.timeline-title` / `.timeline-time` / `.pulse-dot` / `pulse keyframes` / `.drawer-details` / `.details-card` / `.details-row` / `.details-label` / `.details-value` / `.eco-card` / `.eco-header` / `.eco-stats` / `.eco-stat-label` / `.eco-stat-value` / `.drawer-footer` / `.btn-footer` / drawer 响应式（≤ 768px） + `@import url("https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:...")` + `.material-symbols-outlined` 基础类。
+- `OrdersPage.vue`: `.orders-page`、`.page-width`、`.content-grid`（page 级两栏布局）、`.state-error`、fade / slide-right transition keyframes、`.drawer-overlay` / `.progress-drawer` / `.drawer-content` / `.drawer-header` / `.drawer-title` / `.btn-close` / `.drawer-basic-info` / `.info-label` / `.info-value` / `.drawer-timeline` / `.timeline-line` / `.timeline-items` / `.timeline-item` / `.timeline-icon` / `.timeline-content` / `.timeline-title` / `.timeline-time` / `.pulse-dot` / `pulse keyframes` / `.drawer-details` / `.details-card` / `.details-row` / `.details-label` / `.details-value` / `.eco-card` / `.eco-header` / `.eco-stats` / `.eco-stat-label` / `.eco-stat-value` / `.drawer-footer` / `.btn-footer` / drawer 响应式（≤ 768px）。
+  - **不要**重复 `@import url("https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:...")`：该字体已在 `frontend/index.html` `<link>` 全局加载。
+  - **不要**重复定义 `.material-symbols-outlined { font-variation-settings: ... }`：该类已在 `frontend/src/style.css` 全局定义。
+  - OrdersPage 现有 `@import` 与 `.material-symbols-outlined` scoped 块在本次拆分中**随页面 CSS 整体删除**（一次性清理，3 个新 panel 不需要重新引入）。
 - `OrdersHeaderPanel.vue`: `.orders-header`、`.page-title`、`.page-subtitle`、`.header-actions`、`.btn-new-service`、`.tabs-nav`、`.tab-btn`、`.status-stats`、`.stat-card`、`.stat-value`、`.stat-label`、`.stat-desc` + header 区响应式（≤ 768px）。
 - `OrdersRecordList.vue`: `.filter-toolbar`、`.search-box`、`.search-icon`、`.filter-select`、`.record-list`、`.record-card`、`.record-icon`、`.icon-{donation|recycling|remaking}`、`.record-content`、`.record-header`、`.record-title`、`.badge`、`.badge-{donation|recycling|remaking|completed|processing|pending|cancelled}`、`.record-meta`、`.meta-item`、`.record-actions`、`.action-btn` + record-card 区响应式（≤ 768px）、`.record-skeleton`、`.empty-state`。
 - `OrdersSidePanel.vue`: `.side-panel`、`.impact-card`、`.impact-card::after`、`.impact-title`、`.impact-stats`、`.impact-row`、`.impact-label`、`.impact-value`、`.impact-divider`、`.points-display`、`.points-icon`、`.points-value`、`.btn-points-mall`、`.faq-card`、`.faq-title`、`.faq-list`、`.faq-item`。
-
-Material Symbols Outlined 字体导入与基础类（`.material-symbols-outlined` + `font-variation-settings`）由 panel 内部独立 `@import`（scoped CSS 隔离后无重复）。**为避免 4 个文件各自重复 `@import`，建议把字体导入统一放 page 顶部**，由 page 的 `<style scoped>` 加一个非 scoped 的 `<style>` 块（与 home `HomeCoreFunctionsPanel` 的图标字体处理保持一致，参考其做法）。如不便处理，每个 panel 各自 `@import` 也可接受。
 
 `.badge-{donation|recycling|remaking}` 与 `.record-card.border-{...}` / `.icon-{...}` 的 class 映射表在 panel 内部仍可使用 `getServiceTypeClass(type)` 派生，不再二次抽工具函数。
 
@@ -608,7 +609,7 @@ npm run build
 ## 风险与注意事项
 
 - OrdersPage 模板里有 970 行 scoped CSS（包含 drawer 完整样式），移动 markup 时**务必把对应 CSS 一起搬走**，避免拆分后留 orphan rule。建议按"实施顺序"逐步推进，每步完成后用浏览器快速验证视觉无回归。
-- `material-symbols-outlined` 字体导入在 4 个文件（page + 3 panel）各自 `@import` 会重复请求资源。建议统一放 page 顶部非 scoped 块（参考 home `HomeCoreFunctionsPanel` 的图标字体处理）。如不便处理，4 个文件各自 `@import` 也可接受（浏览器会缓存）。
+- Material Symbols 字体已在 `index.html` 全局 `<link>` 加载、`.material-symbols-outlined` 类已在 `style.css` 全局定义，**panel 不需要也不应该** 重新 `@import` 或重定义该类（本次拆分顺手把 OrdersPage 原 scoped `@import` 一起清理）。
 - `getServiceTypeClass` / `getStatusClass` 等命名函数在 panel 内部 import，**不要**通过 emit 二次传递（会增加事件复杂度）。
 - `useOrdersList` 暴露 7 个 ref + 2 个 computed + 1 个 action 的返回对象，page 端按需解构（避免不必要暴露）。
 - Drawer 内的 `getDisplayText` 默认值从 `"暂无"` 收敛后，原有 `"未填写"` / `"无"` 的 fallback 调用方需逐一替换为 `getDisplayText(..., "暂无")`。本次拆分顺手做（不引入新功能）。
