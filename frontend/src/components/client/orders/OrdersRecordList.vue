@@ -44,7 +44,11 @@ function recordServiceLabel(item) {
 </script>
 
 <template>
-  <div class="filter-toolbar" data-reveal style="--reveal-delay: 100ms">
+  <!-- Single root so OrdersRecordList occupies exactly one .content-grid cell;
+       without this wrapper, filter-toolbar + record-list become 2 siblings
+       and break the 2-column layout in OrdersPage. -->
+  <section class="orders-record-list">
+    <div class="filter-toolbar" data-reveal style="--reveal-delay: 100ms">
     <div class="search-box">
       <span class="material-symbols-outlined search-icon">search</span>
       <input
@@ -106,9 +110,16 @@ function recordServiceLabel(item) {
       </article>
     </template>
   </div>
+  </section>
 </template>
 
 <style scoped>
+.orders-record-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
 .filter-toolbar {
   display: flex;
   flex-wrap: wrap;
