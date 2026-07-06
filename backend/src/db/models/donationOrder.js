@@ -25,6 +25,16 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: true,
         field: 'charity_project_id',
       },
+      projectTitle: {
+        type: DataTypes.STRING(120),
+        allowNull: true,
+        field: 'project_title',
+      },
+      projectLocation: {
+        type: DataTypes.STRING(120),
+        allowNull: true,
+        field: 'project_location',
+      },
       itemType: {
         type: DataTypes.STRING(50),
         allowNull: false,

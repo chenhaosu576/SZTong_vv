@@ -12,6 +12,11 @@ module.exports = (sequelize, DataTypes) => {
         autoIncrement: true,
         primaryKey: true,
       },
+      code: {
+        type: DataTypes.STRING(60),
+        allowNull: false,
+        unique: true,
+      },
       name: {
         type: DataTypes.STRING(120),
         allowNull: false,
