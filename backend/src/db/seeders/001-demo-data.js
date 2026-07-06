@@ -10,7 +10,7 @@
 // 幂等:全部走 findOrCreate / 重复 findOne + 直接 create
 
 const bcrypt = require('bcryptjs');
-const { Role, ServiceCenter, Admin, User, Order, RecycleOrder, DonationOrder } = require('../models');
+const { Role, ServiceCenter, Admin, User, Order, RecycleOrder, DonationOrder, sequelize } = require('../models');
 
 module.exports = {
   async up() {
@@ -151,23 +151,25 @@ module.exports = {
       const { recycleDetail, donationDetail, cancelReason, ...orderFields } = spec;
       if (cancelReason) orderFields.cancelReason = cancelReason;
 
-      const order = await Order.create({
-        ...orderFields,
-        userId: user.id,
-      });
+      await sequelize.transaction(async (t) => {
+        const order = await Order.create({
+          ...orderFields,
+          userId: user.id,
+        }, { transaction: t });
 
-      if (recycleDetail) {
-        await RecycleOrder.create({
-          orderId: order.id,
-          ...recycleDetail,
-        });
-      }
-      if (donationDetail) {
-        await DonationOrder.create({
-          orderId: order.id,
-          ...donationDetail,
-        });
-      }
+        if (recycleDetail) {
+          await RecycleOrder.create({
+            orderId: order.id,
+            ...recycleDetail,
+          }, { transaction: t });
+        }
+        if (donationDetail) {
+          await DonationOrder.create({
+            orderId: order.id,
+            ...donationDetail,
+          }, { transaction: t });
+        }
+      });
     }
 
     console.log('OK: 4 个 service_centers + 1 admin + 1 user + 4 orders demo 数据已就位');
@@ -177,9 +179,15 @@ module.exports = {
     // 倒序删
     await DonationOrder.destroy({ where: {}, truncate: true, cascade: true });
     await RecycleOrder.destroy({ where: {}, truncate: true, cascade: true });
-    await Order.destroy({ where: {}, truncate: true, cascade: true });
-    await User.destroy({ where: { email: 'user@szt.com' } });
-    await Admin.destroy({ where: { username: 'admin@szt.com' } });
+    const demoOrderNos = [
+      'SZT-20260324-001',
+      'SZT-20260320-011',
+      'SZT-20260316-028',
+      'SZT-20260311-102',
+    ];
+    await Order.destroy({ where: { orderNo: demoOrderNos } });
+    await User.destroy({ where: { email: 'user@szt.com' }, force: true });
+    await Admin.destroy({ where: { username: 'admin@szt.com' }, force: true });
     for (const code of ['xuhui-caohejing', 'changning-zhongshan', 'jingan-pengpu', 'putuo-zhenru']) {
       await ServiceCenter.destroy({ where: { code } });
     }
