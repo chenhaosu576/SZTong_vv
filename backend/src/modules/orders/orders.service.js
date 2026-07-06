@@ -75,18 +75,6 @@ function pickOrderPayload(order, recycleDetail, donationDetail, center) {
   return base;
 }
 
-async function fetchOrderWithDetails(orderId) {
-  const order = await Order.findByPk(orderId, {
-    include: [
-      { model: RecycleOrder, as: 'recycleDetail' },
-      { model: DonationOrder, as: 'donationDetail' },
-      { model: ServiceCenter, as: 'serviceCenter' },
-    ],
-  });
-  if (!order) return null;
-  return pickOrderPayload(order, order.recycleDetail, order.donationDetail, order.serviceCenter);
-}
-
 async function listOrders(userId, { status, page = 1, pageSize = 10 } = {}) {
   const where = { userId };
   if (status) where.status = status;
@@ -111,12 +99,16 @@ async function listOrders(userId, { status, page = 1, pageSize = 10 } = {}) {
 }
 
 async function getOrderForUser(userId, orderId) {
-  const order = await fetchOrderWithDetails(orderId);
+  const order = await Order.findOne({
+    where: { id: orderId, userId },
+    include: [
+      { model: RecycleOrder, as: 'recycleDetail' },
+      { model: DonationOrder, as: 'donationDetail' },
+      { model: ServiceCenter, as: 'serviceCenter' },
+    ],
+  });
   if (!order) throw new ApiError(40401, '订单不存在');
-  // 注:此处用 orderId 反查的 order 不带 userId,需要再查 user 归属
-  const raw = await Order.findByPk(orderId);
-  if (raw.userId !== userId) throw new ApiError(40302, '无权访问此订单');
-  return order;
+  return pickOrderPayload(order, order.recycleDetail, order.donationDetail, order.serviceCenter);
 }
 
 function validateRecyclePayload(payload) {
