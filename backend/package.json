@@ -4,6 +4,7 @@
     "morgan": "^1.10.0",
     "nodemon": "^3.1.14",
     "sequelize-cli": "^6.6.5",
+    "sqlite3": "^6.0.1",
     "supertest": "^7.0.0"
   },
   "name": "backend",
@@ -49,12 +50,12 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "db:migrate:sql":   "node scripts/run-sql.js",
-    "db:migrate":       "sequelize-cli db:migrate",
-    "db:migrate:undo":  "sequelize-cli db:migrate:undo:all",
-    "db:seed":          "sequelize-cli db:seed:all",
-    "db:seed:undo":     "sequelize-cli db:seed:undo:all",
-    "db:check":         "node scripts/db-check.js"
+    "db:migrate:sql": "node scripts/run-sql.js",
+    "db:migrate": "sequelize-cli db:migrate",
+    "db:migrate:undo": "sequelize-cli db:migrate:undo:all",
+    "db:seed": "sequelize-cli db:seed:all",
+    "db:seed:undo": "sequelize-cli db:seed:undo:all",
+    "db:check": "node scripts/db-check.js"
   },
   "keywords": [],
   "author": "",
