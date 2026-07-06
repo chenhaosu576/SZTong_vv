@@ -80,4 +80,49 @@ describe('GET /api/v1/client/orders', () => {
     expect(res.body.data.list[0].orderType).toBe('recycle');
     expect(res.body.data.list[0].recycleDetail.category).toBe('小家电');
   });
+
+  test('用户 A 不能看用户 B 的订单 → 40401', async () => {
+    // 用户 A 登录下个单
+    await request(app)
+      .post('/api/v1/client/orders/recycle')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        category: '小家电',
+        weightBand: '5-10kg',
+        estimatedWeight: 6.5,
+        scheduledDate: '2026-12-01',
+        scheduledPeriod: '09:00-12:00',
+        contactName: '张三',
+        contactPhone: '13800001111',
+        addressSnapshot: '上海市徐汇区宜山路 501 号',
+      });
+
+    // 取这条订单的 id
+    const listRes = await request(app)
+      .get('/api/v1/client/orders')
+      .set('Authorization', `Bearer ${token}`);
+    const orderId = listRes.body.data.list[0].id;
+
+    // 创建用户 B 并登录
+    const passwordHash = await bcrypt.hash('123456', 10);
+    await User.create({
+      email: 'other@test.com',
+      passwordHash,
+      displayName: 'other-user',
+      status: 1,
+      pointsBalance: 0,
+    });
+    const otherLogin = await request(app)
+      .post('/api/v1/client/auth/login')
+      .send({ email: 'other@test.com', password: '123456' });
+    const otherToken = otherLogin.body.data.token;
+
+    // B 用自己的 token GET A 的 orderId → 40401
+    const res = await request(app)
+      .get(`/api/v1/client/orders/${orderId}`)
+      .set('Authorization', `Bearer ${otherToken}`);
+
+    expect(res.status).toBe(404);
+    expect(res.body.code).toBe(40401);
+  });
 });
