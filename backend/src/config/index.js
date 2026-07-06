@@ -7,6 +7,11 @@
 //   - 不负责 schema 校验（P0-2 接 joi/zod 后再做）
 // 使用方: src/server.js, src/modules/ai/*.service.js, src/config/db.js
 
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET is required (set in backend/.env)');
+}
+
 function pickEnv(...keys) {
   for (const key of keys) {
     const val = process.env[key];
@@ -47,5 +52,9 @@ module.exports = {
     poolMin:  intEnv('DB_POOL_MIN', 0),
     logging:  boolEnv('DB_LOGGING', false),
     timezone: process.env.DB_TIMEZONE || '+08:00',
+  },
+  jwt: {
+    secret: JWT_SECRET,
+    expiresIn: process.env.JWT_EXPIRES_IN || '7d',
   },
 };
