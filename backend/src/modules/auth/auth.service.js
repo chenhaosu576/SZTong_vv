@@ -72,9 +72,13 @@ async function login({ email, password }) {
     throw new ApiError(40101, '邮箱或密码错误');
   }
 
-  // 更新 lastLoginAt(可选,失败不阻塞登录)
-  user.lastLoginAt = new Date();
-  await user.save({ fields: ['lastLoginAt'] });
+  // 更新 lastLoginAt(best-effort,失败不阻塞登录)
+  try {
+    user.lastLoginAt = new Date();
+    await user.save({ fields: ['lastLoginAt'] });
+  } catch (e) {
+    console.warn('[auth] lastLoginAt save failed:', e.message);
+  }
 
   const token = jwtUtil.sign({ id: user.id, email: user.email });
   return { token, user: pickUserPayload(user) };
