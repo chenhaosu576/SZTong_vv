@@ -1,0 +1,10 @@
+// .sequelizerc
+// sequelize-cli 路径配置：把 models / migrations / seeders / config 都指向 src/db 命名空间。
+const path = require('path');
+
+module.exports = {
+  config:        path.resolve('src/db/config.js'),
+  'models-path': path.resolve('src/db/models'),
+  'seeders-path': path.resolve('src/db/seeders'),
+  'migrations-path': path.resolve('migrations'),
+};

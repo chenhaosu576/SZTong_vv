@@ -16,6 +16,7 @@ const corsMiddleware = require('./config/cors');
 const logger = require('./middlewares/logger');
 const errorMiddleware = require('./middlewares/error');
 const routes = require('./routes');
+require('./config/db'); // 触发 Sequelize 实例构造（不连接，连接在 server.js authenticate）
 
 const app = express();
 
