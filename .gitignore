@@ -1,0 +1,11 @@
+.worktrees/
+
+# Dev docs / AI tooling metadata — never push to origin.
+# These are local-only artifacts for Claude Code / superpowers workflows.
+/CLAUDE.md
+/AGENTS.md
+/design*.md
+/task.md
+/.claude/
+/docs/superpowers/
+/评分标准.docx
