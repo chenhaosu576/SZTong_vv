@@ -1,7 +1,7 @@
 <script setup>
-import { onMounted, ref } from "vue";
+import { computed, onMounted } from "vue";
 
-import { fetchTopMetrics } from "../../mock/clientApi";
+import { useMetricsStore } from "@/stores/metrics";
 
 const props = defineProps({
   user: {
@@ -12,24 +12,11 @@ const props = defineProps({
 
 const emit = defineEmits(["goto-auth", "logout"]);
 
-const loading = ref(true);
-const metrics = ref({
-  processedToday: 0,
-  activeSites: 0,
-  avgResponseHour: 0,
-  carbonReducedKg: 0,
-});
+const metricsStore = useMetricsStore();
+const loading = computed(() => metricsStore.loading);
+const metrics = computed(() => metricsStore.top);
 
-async function loadMetrics() {
-  loading.value = true;
-  try {
-    metrics.value = await fetchTopMetrics();
-  } finally {
-    loading.value = false;
-  }
-}
-
-onMounted(loadMetrics);
+onMounted(() => metricsStore.fetchTop());
 </script>
 
 <template>
