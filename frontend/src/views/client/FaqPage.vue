@@ -2,14 +2,15 @@
 import { computed, onMounted, ref } from "vue";
 
 import { useRevealOnScroll } from "../../composables/useRevealOnScroll";
-import { fetchFaqData } from "../../mock/clientApi";
+import { useContentStore } from "../../stores/content";
 
 const pageRef = ref(null);
 useRevealOnScroll(pageRef);
 
-const loading = ref(true);
-const errorText = ref("");
-const faqPayload = ref(null);
+const contentStore = useContentStore();
+const loading = computed(() => contentStore.loading);
+const errorText = computed(() => contentStore.errorText);
+const faqPayload = computed(() => contentStore.faq);
 const activeCategory = ref("全部");
 const keyword = ref("");
 
@@ -30,15 +31,7 @@ const filteredFaqs = computed(() => {
 });
 
 async function loadFaq() {
-  loading.value = true;
-  errorText.value = "";
-  try {
-    faqPayload.value = await fetchFaqData();
-  } catch (error) {
-    errorText.value = "常见问题加载失败，请稍后重试。";
-  } finally {
-    loading.value = false;
-  }
+  await contentStore.fetchFaq();
 }
 
 onMounted(loadFaq);
