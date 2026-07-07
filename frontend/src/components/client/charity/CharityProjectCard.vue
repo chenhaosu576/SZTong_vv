@@ -1,8 +1,7 @@
 <!-- CharityProjectCard.vue -->
-<!-- 公益项目列表的单张项目卡。
-     接收 project + selected + daysLeftText,emit donate。
-     由 CharityProjectsGrid 在 v-for 内调用,donate 在 grid 层
-     中转为 select-project(project) 向上抛出。 -->
+<!-- 公益项目单卡。接收 project + selected + daysLeftText, emit donate。
+     urgency / daysLeft / needs 由后端返回 (project.* 字段直接读)。
+     daysLeftText 由 grid/view 拼好传入 (例: "剩余 3 天" / "长期募集")。 -->
 
 <script setup>
 defineProps({
