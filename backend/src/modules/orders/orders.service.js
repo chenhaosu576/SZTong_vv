@@ -11,6 +11,7 @@
 //   donation estimated_points = 0(本轮不接 B 端,granted_points 仅 B 端发放)
 
 const { Order, RecycleOrder, DonationOrder, ServiceCenter } = require('../../db/models');
+const { Op } = require('sequelize');
 const ApiError = require('../../utils/ApiError');
 
 const RECYCLE_CATEGORIES = ['小家电', '纸塑金属', '纺织旧衣', '有害垃圾', '大件家具'];
@@ -75,9 +76,14 @@ function pickOrderPayload(order, recycleDetail, donationDetail, center) {
   return base;
 }
 
-async function listOrders(userId, { status, page = 1, pageSize = 10 } = {}) {
+async function listOrders(userId, { status, dateFrom, dateTo, page = 1, pageSize = 10 } = {}) {
   const where = { userId };
   if (status) where.status = status;
+  if (dateFrom || dateTo) {
+    where.scheduledDate = {};
+    if (dateFrom) where.scheduledDate[Op.gte] = dateFrom;
+    if (dateTo) where.scheduledDate[Op.lte] = dateTo;
+  }
 
   const offset = (page - 1) * pageSize;
   const { rows, count } = await Order.findAndCountAll({

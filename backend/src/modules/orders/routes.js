@@ -38,6 +38,8 @@ router.get(
   asyncHandler(async (req, res) => {
     const data = await service.listOrders(req.user.id, {
       status: req.query.status,
+      dateFrom: req.query.dateFrom,
+      dateTo: req.query.dateTo,
       page: Number(req.query.page) || 1,
       pageSize: Number(req.query.pageSize) || 10,
     });
