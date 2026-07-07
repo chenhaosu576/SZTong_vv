@@ -55,7 +55,8 @@
     "db:migrate:undo": "sequelize-cli db:migrate:undo:all",
     "db:seed": "sequelize-cli db:seed:all",
     "db:seed:undo": "sequelize-cli db:seed:undo:all",
-    "db:check": "node scripts/db-check.js"
+    "db:check": "node scripts/db-check.js",
+    "db:ensure-charity-tables": "node scripts/ensure-charity-tables.js"
   },
   "keywords": [],
   "author": "",

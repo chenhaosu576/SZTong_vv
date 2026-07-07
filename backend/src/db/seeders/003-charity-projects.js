@@ -117,7 +117,7 @@ module.exports = {
         });
       }
     }
-    console.log('OK: 8 个 charity_projects + 21 个 needs 已就位');
+    console.log('OK: 8 个 charity_projects + 18 个 needs 已就位');
   },
 
   async down() {
