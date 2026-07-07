@@ -9,6 +9,10 @@
 // 积分规则:
 //   recycle estimated_points 走 weightBand 查表
 //   donation estimated_points = 0(本轮不接 B 端,granted_points 仅 B 端发放)
+//
+// 关联:
+//   donation → 可选关联 CharityProject(donation_orders.charity_project_id,nullable;DB 层无 FK,P0 已知缺口)
+//   list/get 详情走 DonationOrder → CharityProject 嵌套 include,投影精简为 {id, title, region}
 
 const { Order, RecycleOrder, DonationOrder, ServiceCenter, CharityProject } = require('../../db/models');
 const { Op } = require('sequelize');
@@ -71,6 +75,7 @@ function pickOrderPayload(order, recycleDetail, donationDetail, center) {
         logisticsType: donationDetail.logisticsType,
         projectTitle: donationDetail.projectTitle,
         projectLocation: donationDetail.projectLocation,
+        // 精简投影:订单列表只展示项目身份信息(id/title/region);封面/进度等走单独详情接口
         charityProject: donationDetail.charityProject
           ? {
               id: donationDetail.charityProject.id,
