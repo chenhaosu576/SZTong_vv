@@ -1,8 +1,7 @@
 // useOrdersList.js
-// Business state for the orders page: fetch + keyword / tab / service-type
-// filtering + status normalization + statusStats aggregation. Drawer state
-// (selectedOrder / showDrawer) is intentionally kept page-local because it
-// only ever has one consumer and does not cross panels.
+// Business state for the orders page: keyword / tab / service-type filtering
+// + statusStats aggregation. State is delegated to useOrdersStore (Pinia);
+// composable adds presentation-level filters / tabs that view panels consume.
 //
 // Named functions (isDonationOrder / isRecyclingOrder / getServiceTypeClass
 // / getStatusStage) and tab / class / stage constants are exported at the
@@ -11,85 +10,51 @@
 
 import { computed, ref } from "vue";
 
-import { fetchOrders } from "@/mock/clientApi";
+import { useOrdersStore } from "@/stores/orders";
+import {
+  getOrderDisplayStage,
+  isDonationOrder,
+  isRecyclingOrder,
+} from "@/utils/orderStatus";
 
-export const ORDER_TABS = ["全部记录", "回收预约", "公益捐赠"];
-
-export const ORDER_SERVICE_TYPES = ["所有服务类型", "回收预约", "公益捐赠", "旧物改造"];
-
-export const SERVICE_TYPE_CLASS = {
-  DONATION: "donation",
-  RECYCLING: "recycling",
-  REMAKING: "remaking",
-};
-
+export { isDonationOrder, isRecyclingOrder } from "@/utils/orderStatus";
+export const getStatusStage = (order) => getOrderDisplayStage(order);
 export const STATUS_STAGE = {
   PENDING: "pending",
   PROCESSING: "processing",
   COMPLETED: "completed",
   CANCELLED: "cancelled",
 };
+export const SERVICE_TYPE_CLASS = {
+  DONATION: "donation",
+  RECYCLING: "recycling",
+  REMAKING: "remaking",
+};
 
-function getNormalizedType(item) {
-  return String(item?.type || "").trim();
-}
+export const ORDER_TABS = ["全部记录", "回收预约", "公益捐赠"];
+export const ORDER_SERVICE_TYPES = ["所有服务类型", "回收预约", "公益捐赠", "旧物改造"];
 
-export function isDonationOrder(item) {
-  return getNormalizedType(item).includes("捐赠");
-}
-
-export function isRecyclingOrder(item) {
-  return getNormalizedType(item).includes("回收");
-}
-
-export function getServiceTypeClass(type) {
-  const normalizedType = String(type || "").trim();
-  if (normalizedType.includes("捐赠")) return SERVICE_TYPE_CLASS.DONATION;
-  if (normalizedType.includes("回收")) return SERVICE_TYPE_CLASS.RECYCLING;
+export function getServiceTypeClass(order) {
+  if (isDonationOrder(order)) return SERVICE_TYPE_CLASS.DONATION;
+  if (isRecyclingOrder(order)) return SERVICE_TYPE_CLASS.RECYCLING;
   return SERVICE_TYPE_CLASS.REMAKING;
 }
 
-export function getStatusStage(status) {
-  const normalizedStatus = String(status || "").trim();
-
-  if (!normalizedStatus) return STATUS_STAGE.PENDING;
-  if (normalizedStatus.includes("取消") || normalizedStatus.includes("失效")) return STATUS_STAGE.CANCELLED;
-  if (normalizedStatus.includes("完成") || normalizedStatus.includes("签收")) return STATUS_STAGE.COMPLETED;
-  if (
-    normalizedStatus.includes("待") ||
-    normalizedStatus.includes("确认") ||
-    normalizedStatus.includes("核验")
-  ) {
-    return STATUS_STAGE.PENDING;
-  }
-  if (
-    normalizedStatus.includes("处理") ||
-    normalizedStatus.includes("派送") ||
-    normalizedStatus.includes("转运") ||
-    normalizedStatus.includes("配送")
-  ) {
-    return STATUS_STAGE.PROCESSING;
-  }
-
-  return STATUS_STAGE.PENDING;
-}
-
 export function useOrdersList() {
-  const loading = ref(true);
-  const errorText = ref("");
-  const allOrders = ref([]);
+  const store = useOrdersStore();
+
   const keyword = ref("");
   const activeTab = ref(ORDER_TABS[0]);
   const serviceTypeFilter = ref(ORDER_SERVICE_TYPES[0]);
 
   const filteredOrders = computed(() => {
-    return allOrders.value.filter((item) => {
-      const query = keyword.value.trim().toLowerCase();
+    const query = keyword.value.trim().toLowerCase();
+    return store.list.filter((item) => {
       const passKeyword =
         !query ||
-        String(item?.id || "").toLowerCase().includes(query) ||
-        getNormalizedType(item).toLowerCase().includes(query) ||
-        String(item?.station || "").toLowerCase().includes(query);
+        String(item?.orderNo || "").toLowerCase().includes(query) ||
+        String(item?.orderType || "").toLowerCase().includes(query) ||
+        String(item?.serviceCenter?.name || "").toLowerCase().includes(query);
       const passTab =
         activeTab.value === ORDER_TABS[0] ||
         (activeTab.value === "回收预约" && isRecyclingOrder(item)) ||
@@ -104,42 +69,15 @@ export function useOrdersList() {
     });
   });
 
-  const statusStats = computed(() => {
-    const stats = {
-      total: allOrders.value.length,
-      processing: 0,
-      pending: 0,
-      completed: 0,
-      cancelled: 0,
-    };
-    allOrders.value.forEach((item) => {
-      const stage = getStatusStage(item.status);
-      stats[stage]++;
-    });
-    return stats;
-  });
-
-  async function loadOrders() {
-    loading.value = true;
-    errorText.value = "";
-    try {
-      allOrders.value = await fetchOrders();
-    } catch (error) {
-      errorText.value = "订单数据加载失败，请稍后重试。";
-    } finally {
-      loading.value = false;
-    }
-  }
-
   return {
-    loading,
-    errorText,
-    allOrders,
+    loading: computed(() => store.loading),
+    errorText: computed(() => store.errorText),
+    allOrders: computed(() => store.list),
     keyword,
     activeTab,
     serviceTypeFilter,
     filteredOrders,
-    statusStats,
-    loadOrders,
+    statusStats: computed(() => store.statusStats),
+    loadOrders: () => store.fetchList(),
   };
 }
