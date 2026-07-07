@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from "vue-router";
-import { getCurrentUser } from "../utils/auth";
+import { useAuthStore } from "../stores/auth";
 
 import ClientLayout from "../layouts/ClientLayout.vue";
 
@@ -116,13 +116,13 @@ const router = createRouter({
 });
 
 router.beforeEach((to) => {
-  const user = getCurrentUser();
+  const authStore = useAuthStore();
 
-  if (to.name === "auth" && user) {
+  if (to.name === "auth" && authStore.isAuthed) {
     return "/";
   }
 
-  if (to.meta.requiresAuth && !user) {
+  if (to.meta.requiresAuth && !authStore.isAuthed) {
     return {
       path: "/auth",
       query: {
