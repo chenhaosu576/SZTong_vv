@@ -40,6 +40,7 @@ export const useOrdersStore = defineStore("orders", {
           pageSize: data.pageSize,
           total: data.total,
         };
+        return data;
       } catch (e) {
         this.errorText = e.message || "订单加载失败";
       } finally {
