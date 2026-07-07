@@ -16,6 +16,9 @@ function pickUserPayload(user) {
     email: user.email,
     displayName: user.displayName,
     pointsBalance: user.pointsBalance,
+    carbonReductionTotal: user.carbonReductionTotal,
+    growthValue: user.growthValue,
+    levelText: user.levelText,
   };
 }
 
