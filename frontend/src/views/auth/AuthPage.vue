@@ -2,15 +2,12 @@
 import { computed, reactive, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
-import {
-  MIN_PASSWORD_LENGTH,
-  ROLE_CLIENT,
-  login,
-  register,
-} from "../../utils/auth";
+import { useAuthStore } from "../../stores/auth";
+import { MIN_PASSWORD_LENGTH, ROLE_CLIENT } from "../../utils/auth";
 
 const router = useRouter();
 const route = useRoute();
+const authStore = useAuthStore();
 
 const isRightPanelActive = ref(false);
 const statusText = ref("");
@@ -60,16 +57,17 @@ function setStatus(text) {
   statusText.value = text;
 }
 
-function isValidUsername(value) {
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function isValidEmail(value) {
   const text = value.trim();
   if (!text) return false;
-  if (text.length < 4) return false;
-  return true;
+  return EMAIL_REGEX.test(text);
 }
 
 function validateLogin() {
-  if (!isValidUsername(loginForm.username)) {
-    return { valid: false, field: "username", message: "请输入有效账号（至少 4 位）" };
+  if (!isValidEmail(loginForm.username)) {
+    return { valid: false, field: "username", message: "请输入有效邮箱" };
   }
   if (!loginForm.password.trim()) {
     return { valid: false, field: "password", message: "请输入密码" };
@@ -81,8 +79,8 @@ function validateRegister() {
   if (!registerForm.displayName.trim()) {
     return "请填写昵称";
   }
-  if (!isValidUsername(registerForm.username)) {
-    return "请填写有效账号（至少 4 位）";
+  if (!isValidEmail(registerForm.username)) {
+    return "请输入有效邮箱";
   }
   if (registerForm.password.trim().length < MIN_PASSWORD_LENGTH) {
     return `密码至少 ${MIN_PASSWORD_LENGTH} 位`;
@@ -119,26 +117,27 @@ async function submitLogin() {
   }
 
   isSubmitting.value = true;
-  const result = login(loginForm.username, loginForm.password);
-  isSubmitting.value = false;
+  try {
+    await authStore.login({
+      email: loginForm.username.trim(),
+      password: loginForm.password.trim(),
+    });
+    router.push(resolveTarget(authStore.user));
+  } catch (e) {
+    const errMsg = e?.message || "登录失败";
+    setStatus(errMsg);
 
-  if (!result.ok) {
-    setStatus(result.message);
-    
-    // 登录失败时，根据错误信息判断是账号还是密码错误
-    // 这里假设密码错误，你可以根据实际的 result.message 来判断
-    if (result.message.includes("密码") || result.message.includes("password")) {
+    if (errMsg.includes("密码") || errMsg.includes("password")) {
       shakeLoginPassword.value = true;
       setTimeout(() => {
         shakeLoginPassword.value = false;
       }, 650);
-    } else if (result.message.includes("账号") || result.message.includes("用户") || result.message.includes("username")) {
+    } else if (errMsg.includes("账号") || errMsg.includes("用户") || errMsg.includes("username") || errMsg.includes("邮箱") || errMsg.includes("email")) {
       shakeLoginUsername.value = true;
       setTimeout(() => {
         shakeLoginUsername.value = false;
       }, 650);
     } else {
-      // 如果无法判断，两个都抖动
       shakeLoginUsername.value = true;
       shakeLoginPassword.value = true;
       setTimeout(() => {
@@ -146,10 +145,9 @@ async function submitLogin() {
         shakeLoginPassword.value = false;
       }, 650);
     }
-    return;
+  } finally {
+    isSubmitting.value = false;
   }
-
-  router.push(resolveTarget(result.user));
 }
 
 async function submitRegister() {
@@ -162,23 +160,21 @@ async function submitRegister() {
   }
 
   isSubmitting.value = true;
-  const result = register({
-    username: registerForm.username,
-    password: registerForm.password,
-    role: registerForm.role,
-    displayName: registerForm.displayName,
-  });
-  isSubmitting.value = false;
-
-  if (!result.ok) {
-    setStatus(result.message);
-    return;
+  try {
+    await authStore.register({
+      email: registerForm.username.trim(),
+      password: registerForm.password.trim(),
+      displayName: registerForm.displayName.trim(),
+    });
+    setStatus("注册成功，请登录。");
+    isRightPanelActive.value = false;
+    loginForm.username = registerForm.username;
+    loginForm.password = registerForm.password;
+  } catch (e) {
+    setStatus(e?.message || "注册失败");
+  } finally {
+    isSubmitting.value = false;
   }
-
-  setStatus("注册成功，请登录。");
-  isRightPanelActive.value = false;
-  loginForm.username = registerForm.username;
-  loginForm.password = registerForm.password;
 }
 
 function fillClientDemo() {
@@ -266,7 +262,7 @@ function onPasswordInput() {
           <span>使用您的信息进行注册</span>
           
           <input v-model="registerForm.displayName" type="text" placeholder="昵称（例如：绿色生活家）" />
-          <input v-model="registerForm.username" type="text" placeholder="账号（邮箱或手机号，至少 4 位）" />
+          <input v-model="registerForm.username" type="text" placeholder="邮箱" />
           
           <div class="password-input-wrapper">
             <input
@@ -358,10 +354,10 @@ function onPasswordInput() {
           <h1>登录</h1>
           <span>使用您的账号登录</span>
           
-          <input 
-            v-model="loginForm.username" 
-            type="text" 
-            placeholder="账号（邮箱或手机号）"
+          <input
+            v-model="loginForm.username"
+            type="text"
+            placeholder="邮箱"
             :class="{ 'shake-animation': shakeLoginUsername }"
           />
           
