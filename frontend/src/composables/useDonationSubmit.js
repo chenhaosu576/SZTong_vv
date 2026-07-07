@@ -15,10 +15,11 @@
 //     透传给 CharityDonationForm 和 CharitySuccessModal。
 
 import { ref } from "vue";
-import { submitDonation as submitDonationRequest } from "../mock/clientApi";
+import { useOrdersStore } from "../stores/orders";
 import { getDonationValidationMessage } from "../utils/charityValidation";
 
 export function useDonationSubmit({ donationForm, getSelectedProject, onSuccess }) {
+  const ordersStore = useOrdersStore();
   const submitLoading = ref(false);
   const errorText = ref("");
   const submitResult = ref(null);
@@ -48,31 +49,30 @@ export function useDonationSubmit({ donationForm, getSelectedProject, onSuccess 
 
     try {
       const payload = {
-        projectId: selectedProject.id,
         projectTitle: selectedProject.title,
         projectLocation: selectedProject.location,
         itemType: String(form.itemType || "").trim(),
         itemName: String(form.itemName || "").trim(),
-        quantity: String(form.quantity || "").trim(),
-        weight: String(form.weight || "").trim(),
-        condition: String(form.condition || "").trim(),
-        logistics: String(form.logistics || "").trim(),
-        donorName: String(form.donorName || "").trim(),
-        phone: String(form.phone || "").trim(),
+        quantityText: String(form.quantity || "").trim(),
+        weightText: String(form.weight || "").trim(),
+        conditionText: String(form.condition || "").trim(),
+        logisticsType: String(form.logistics || "").trim(),
+        contactName: String(form.donorName || "").trim(),
+        contactPhone: String(form.phone || "").trim(),
       };
-      const result = await submitDonationRequest(payload);
+      const result = await ordersStore.submitDonation(payload);
 
       submitResult.value = {
-        message: "捐赠信息提交成功,已同步到服务记录。",
-        orderId: result.orderId,
-        syncedToOrders: result.syncedToOrders,
+        message: "捐赠信息提交成功，已同步到服务记录。",
+        orderId: result.orderNo,
+        status: result.status,
       };
 
       if (typeof onSuccess === "function") {
         onSuccess();
       }
     } catch (error) {
-      errorText.value = "提交失败,请稍后重试。";
+      errorText.value = error?.message || "提交失败,请稍后重试。";
     } finally {
       submitLoading.value = false;
     }
