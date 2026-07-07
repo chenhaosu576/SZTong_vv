@@ -1,85 +1,22 @@
 // charityConstants.js
-// 公益页面共享的静态数据常量。
-// 集中在此避免散落到 view / composable 顶部。
+// 公益页面共享的静态数据常量 (projects / regionOptions 已迁到后端,本文件
+// 只保留筛选条枚举 + 静态文案)。
 //
 // 包含:
-//   - projects: mock 项目列表(3 项,含进度 / 紧急需求 / 受助方 / 详情等)
-//   - categories / urgencyOptions / regionOptions: 筛选条枚举项
+//   - categories: 类目 chips(后端暂不返回,留作占位)
+//   - urgencyOptions: 紧急度筛选项
+//   - urgentDaysThreshold: 紧急/常态募集的分界天数(已无业务消费,保留
+//     给未来本地快速判定,目前的真实判定由后端按 deadline 实时算)
 //   - processSteps: 四步流程文案
 //   - trustFeatures: 信任背书 4 个特性
-//   - urgentDaysThreshold: 紧急 / 常态募集的分界天数
 //
-// 使用方:
-//   - CharityPage.vue (顶部 import 透传给 panel)
-//   - useCharityFilters.js (urgentDaysThreshold)
-
-export const projects = [
-  {
-    id: 1,
-    title: "大凉山冬季暖心计划",
-    location: "四川·凉山",
-    region: "西部地区",
-    categories: ["衣物", "文具"],
-    tag: "紧急项目",
-    tagColor: "bg-red-600",
-    urgentNeeds: "急需：儿童冬衣 / 棉鞋 / 书包",
-    progress: 72,
-    current: 864,
-    total: 1200,
-    unit: "件",
-    daysLeft: 14,
-    beneficiary: "瓦吾小学学生",
-    image: "https://images.pexels.com/photos/15311442/pexels-photo-15311442.jpeg?cs=srgb&dl=pexels-akh-taufiq-202388902-15311442.jpg&fm=jpg",
-    description: "瓦吾小学位于海拔2700米的山巅,冬长夏短,温差极大。冬季早晨气温常在零下,许多孩子穿着单薄的布鞋和外套步行数公里上学。我们希望汇聚社会力量,为山区的孩子们送去温暖。",
-    needs: [
-      { title: "儿童冬装外套", desc: "标准:8 成新以上,无破损,男女不限" },
-      { title: "保暖棉鞋 / 运动鞋", desc: "标准:全新或近全新,码数 28-38 码" },
-      { title: "加厚袜 / 手套 / 围巾", desc: "标准:仅限全新" },
-    ],
-  },
-  {
-    id: 2,
-    title: "乡村阅读角落建设",
-    location: "甘肃·定西",
-    region: "西部地区",
-    categories: ["图书", "文具"],
-    tag: "教育支持",
-    tagColor: "bg-green-600",
-    urgentNeeds: "急需:青少年绘本 / 文具盒",
-    progress: 45,
-    current: 2250,
-    total: 5000,
-    unit: "本",
-    daysLeft: null,
-    beneficiary: "定西乡村小学",
-    image: "https://lh3.googleusercontent.com/aida-public/AB6AXuD-vEYpZWELSaBiQHUCU5s9K4GHjrYKzSyZBrawpw6Lv05z0bZ0wL-uO4j2y-EUe9pBHXaIj-UoJ8Cbvz5cY-yNn2713dOteo3UPa9afcLIqC5tojajG2gJDT-_pzl1vjWCDzwZzWr_a7BgbfG9MsWErniWFYh6p6YuNAay0TlKOwSYtMpIsz0ctwBakfAP0Us2kzxN1rYV_g29cDm8c5m5cutNHoJJEglIZAYa92zWZDeu1K8YVvAPv5vASnLJxvl8T7Smixo3I0I",
-  },
-  {
-    id: 3,
-    title: "社区闲置循环共享舱",
-    location: "上海·普陀",
-    region: "华东地区",
-    categories: ["家居", "其他"],
-    tag: "社区帮扶",
-    tagColor: "bg-green-600",
-    urgentNeeds: "急需:烧水壶 / 电风扇 / 梯子",
-    progress: 91,
-    current: 182,
-    total: 200,
-    unit: "件",
-    daysLeft: 3,
-    beneficiary: "社区困难家庭",
-    image: "https://lh3.googleusercontent.com/aida-public/AB6AXuAhgvU0cLJleG-KawwH5lajDo83Pp50_vmCcVrYuk2zJwomDpIzxFTkrZy8KuqAuLdHnT_-xmiE2DodbiW7Tld_yrexaDnhdbVhn4V-ukUtH9mAvJ3HCXdDfPu3jKF3WyFvA2yAERGVW0LIfwcxETX1xbANp_ihHA52UYVS8UW6_ITa_Q5KuoWy2l3qOPWXjkH5Pumj_vXh4GCisGw8t858XYjUrT8dsYRAgKyziIdpkLMMX_TYh7AJX4S0KrSfe5iouhQTtTOqNTI",
-  },
-];
+// 使用方: views/client/CharityPage.vue (顶部 import 透传给 panel)
 
 export const categories = ["全部需求", "图书", "衣物", "文具", "家居", "其他"];
 
 export const urgencyOptions = ["全部", "紧急募集中", "常态募集中"];
 
 export const urgentDaysThreshold = 7;
-
-export const regionOptions = ["全国", ...new Set(projects.map((project) => project.region))];
 
 export const processSteps = [
   { icon: "search", title: "浏览项目", desc: "查看当前正在募集的公益需求" },
