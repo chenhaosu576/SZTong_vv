@@ -1,13 +1,26 @@
 <!-- CharityProjectCard.vue -->
 <!-- 公益项目单卡。接收 project + selected + daysLeftText, emit donate。
      urgency / daysLeft / needs 由后端返回 (project.* 字段直接读)。
-     daysLeftText 由 grid/view 拼好传入 (例: "剩余 3 天" / "长期募集")。 -->
+     daysLeftText 由 grid/view 拼好传入 (例: "剩余 3 天" / "长期募集")。
+     progressPercent 由 currentProgress / targetProgress 实时算 (兼容 null/0)。
+     项目无 coverImage 时回退到 DEFAULT_COVER, 避免空 src。 -->
 
 <script setup>
-defineProps({
+import { computed } from "vue";
+
+const DEFAULT_COVER =
+  "https://images.pexels.com/photos/15311442/pexels-photo-15311442.jpeg";
+
+const props = defineProps({
   project: { type: Object, required: true },
   selected: { type: Boolean, required: true },
   daysLeftText: { type: String, required: true },
+});
+
+const progressPercent = computed(() => {
+  const { currentProgress, targetProgress } = props.project;
+  if (!targetProgress) return 0;
+  return Math.min(100, Math.round((currentProgress / targetProgress) * 100));
 });
 
 defineEmits(["donate"]);
@@ -16,8 +29,13 @@ defineEmits(["donate"]);
 <template>
   <div :class="['project-card', selected ? 'selected' : '']">
     <div class="project-image">
-      <img :src="project.image" :alt="project.title" />
-      <span :class="['project-tag', project.tagColor]">{{ project.tag }}</span>
+      <img
+        :src="project.coverImage || DEFAULT_COVER"
+        :alt="project.title"
+      />
+      <span
+        :class="['project-tag', project.urgency === '紧急募集中' ? 'bg-red-600' : 'bg-green-600']"
+      >{{ project.tag || project.urgency }}</span>
     </div>
     <div class="project-body">
       <div class="project-location">
@@ -25,14 +43,14 @@ defineEmits(["donate"]);
         {{ project.location }}
       </div>
       <h3 class="project-title">{{ project.title }}</h3>
-      <div class="project-urgent">{{ project.urgentNeeds }}</div>
+      <div class="project-urgent">{{ project.urgency }}</div>
       <div class="project-progress">
         <div class="progress-info">
-          <span>募集进度 {{ project.progress }}%</span>
-          <span class="progress-numbers">{{ project.current }} / {{ project.total }} {{ project.unit }}</span>
+          <span>募集进度 {{ progressPercent }}%</span>
+          <span class="progress-numbers">{{ project.currentProgress ?? 0 }} / {{ project.targetProgress ?? 0 }} {{ project.progressUnit }}</span>
         </div>
         <div class="progress-bar">
-          <div class="progress-fill" :style="{ width: project.progress + '%' }"></div>
+          <div class="progress-fill" :style="{ width: progressPercent + '%' }"></div>
         </div>
         <div class="progress-meta">
           <span class="meta-item">
