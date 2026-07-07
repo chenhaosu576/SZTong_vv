@@ -5,8 +5,6 @@
 // 包含:
 //   - categories: 类目 chips(后端暂不返回,留作占位)
 //   - urgencyOptions: 紧急度筛选项
-//   - urgentDaysThreshold: 紧急/常态募集的分界天数(已无业务消费,保留
-//     给未来本地快速判定,目前的真实判定由后端按 deadline 实时算)
 //   - processSteps: 四步流程文案
 //   - trustFeatures: 信任背书 4 个特性
 //
@@ -15,8 +13,6 @@
 export const categories = ["全部需求", "图书", "衣物", "文具", "家居", "其他"];
 
 export const urgencyOptions = ["全部", "紧急募集中", "常态募集中"];
-
-export const urgentDaysThreshold = 7;
 
 export const processSteps = [
   { icon: "search", title: "浏览项目", desc: "查看当前正在募集的公益需求" },
