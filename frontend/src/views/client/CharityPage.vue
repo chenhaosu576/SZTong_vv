@@ -14,7 +14,6 @@ import { useCharityFilters } from "@/composables/useCharityFilters";
 import { useDonationForm } from "@/composables/useDonationForm";
 import { useDonationSubmit } from "@/composables/useDonationSubmit";
 import {
-  categories,
   urgencyOptions,
   processSteps,
   trustFeatures,

@@ -27,7 +27,7 @@ defineProps({
           <div class="need-dot"></div>
           <div>
             <p class="need-title">{{ need.title }}</p>
-            <p class="need-desc">{{ need.desc }}</p>
+            <p class="need-desc">{{ need.description }}</p>
           </div>
         </div>
       </div>
