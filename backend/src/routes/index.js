@@ -17,5 +17,6 @@ router.use('/v1/client/orders', require('../modules/orders/routes'));
 router.use('/v1/client/service-centers', require('../modules/service-centers/routes'));
 router.use('/v1/client/content', require('../modules/content/routes'));
 router.use('/v1/client/metrics', require('../modules/metrics/routes'));
+router.use('/v1/client/charity', require('../modules/charity/routes'));
 
 module.exports = router;
