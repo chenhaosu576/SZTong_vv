@@ -1,10 +1,14 @@
 <!--
   ProfileBottomSectionsPanel.vue
-  页面底部 3 个 sub-section inline:
+  页面底部 sub-section inline:
     1) 任务列表 (.tasks-section + .task-card + 进度条)
     2) 成就勋章 (.achievements-section + .achievement-card + unlocked/locked 态)
     3) 最近动态 (.activity-section + .activity-item + 积分正负色)
-  Page 通过 :tasks / :achievements / :activities 三个 prop 喂入静态数组。
+    4) 个人轨迹 (.tracks-section + .track-card)
+    5) 徽章列表 (.badges-section + .badge-card)
+    6) 菜单入口 (.menu-section + .menu-card)
+  Page 通过 :tasks / :achievements / :activities / :tracks / :badges / :menu
+  六个 prop 喂入数据 (前三者静态常量, 后三者来自 useContentStore.profileDemo)。
   Emits: view-all-achievements (成就区"查看全部"按钮; 当前无真实跳转, 预留接入)。
 -->
 
@@ -13,6 +17,9 @@ defineProps({
   tasks: { type: Array, required: true },
   achievements: { type: Array, required: true },
   activities: { type: Array, required: true },
+  tracks: { type: Array, default: () => [] },
+  badges: { type: Array, default: () => [] },
+  menu: { type: Array, default: () => [] },
 });
 
 const emit = defineEmits(["view-all-achievements"]);
@@ -75,6 +82,37 @@ const emit = defineEmits(["view-all-achievements"]);
           <div :class="['points-value', activity.pointsVariant]">{{ activity.points }}</div>
           <div class="activity-time">{{ activity.time }}</div>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 个人轨迹 -->
+  <section class="tracks-section">
+    <h2 class="section-title">个人轨迹</h2>
+    <div class="tracks-list">
+      <div v-for="track in tracks" :key="track.name" class="track-card">
+        <div class="track-name">{{ track.name }}</div>
+        <div class="track-value">{{ track.value }}</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 徽章列表 -->
+  <section class="badges-section">
+    <h2 class="section-title">徽章</h2>
+    <div class="badges-list">
+      <div v-for="badge in badges" :key="badge" class="badge-card">
+        {{ badge }}
+      </div>
+    </div>
+  </section>
+
+  <!-- 菜单入口 -->
+  <section class="menu-section">
+    <h2 class="section-title">设置</h2>
+    <div class="menu-list">
+      <div v-for="item in menu" :key="item" class="menu-card">
+        {{ item }}
       </div>
     </div>
   </section>

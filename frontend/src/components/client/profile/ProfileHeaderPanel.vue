@@ -7,8 +7,9 @@
     2) blur text: IntersectionObserver + 字符级高亮
     3) level bottle: 液体高度 + 4 段波浪 + 气泡 + 玻璃反光 + hover tooltip
     4) streak card: 火焰动画 + 天数 + 已打卡按钮 + 调试 reset 按钮
-  页面通过 prop 喂入计算好的 streak / guardian / levelProgress / anim flags，
-  事件通过 check-in / reset-check-in emit 上抛。
+  页面通过标量 prop 喂入 name / points / levelText / carbonText + 计算好的
+  streak / guardian / levelProgress / anim flags，事件通过 check-in /
+  reset-check-in emit 上抛。
 -->
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
@@ -17,13 +18,16 @@ const AVATAR_STORAGE_KEY = "userAvatar";
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 
 const props = defineProps({
-  profile: { type: Object, required: true },
-  guardianDays: { type: Number, required: true },
-  levelProgress: { type: Number, required: true },
-  isGuardianDaysUpdating: { type: Boolean, required: true },
-  streakDays: { type: Number, required: true },
-  hasCheckedInToday: { type: Boolean, required: true },
-  isStreakAnimating: { type: Boolean, required: true },
+  name: { type: String, default: "" },
+  points: { type: Number, default: 0 },
+  levelText: { type: String, default: "Lv.1 入门用户" },
+  carbonText: { type: String, default: "" },
+  guardianDays: { type: Number, default: 0 },
+  levelProgress: { type: Number, default: 0 },
+  isGuardianDaysUpdating: { type: Boolean, default: false },
+  streakDays: { type: Number, default: 0 },
+  hasCheckedInToday: { type: Boolean, default: false },
+  isStreakAnimating: { type: Boolean, default: false },
   showDebugReset: { type: Boolean, default: false },
 });
 
@@ -123,7 +127,7 @@ const isBottleHovered = ref(false);
           @change="handleAvatarChange"
         />
         <div class="profile-info">
-          <h1 class="profile-name">你好，{{ profile.name }}</h1>
+          <h1 class="profile-name">你好，{{ props.name }}</h1>
           <div class="profile-meta">
             <span class="badge">高级环保达人</span>
             <span class="join-days">已加入 1,240 天</span>

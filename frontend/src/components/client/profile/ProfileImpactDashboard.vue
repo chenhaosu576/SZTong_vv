@@ -4,15 +4,16 @@
     - 周期 tabs: 本周 / 本月 / 季度
     - 能耗卡 + CO2 卡 (两张 metric 卡 inline, 通过 v-for 渲染避免模板重复)
     - 积分卡 + rewards banner
-  Page 通过 :points prop 喂入积分数值, 内部 :selected-period prop / @update 事件
-  暴露周期状态 (v-model 写法)。
+  Page 通过标量 prop 喂入 :points (积分) / :weekly-trend (周趋势数组);
+  :selected-period / @update:selected-period 暴露周期状态 (v-model 写法)。
 -->
 
 <script setup>
 import { computed, ref } from "vue";
 
 const props = defineProps({
-  points: { type: Number, required: true },
+  points: { type: Number, default: 0 },
+  weeklyTrend: { type: Array, default: () => [] },
   selectedPeriod: { type: String, default: "本月" },
 });
 

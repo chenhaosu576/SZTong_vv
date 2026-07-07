@@ -1,10 +1,11 @@
 <!--
   ProfilePage.vue
   个人中心主页 (薄编排层):
-    持有 loading / errorText / profile 三态 ref + loadProfile async
-    (inline 原 useProfileData 职责); 组合 2 个 composable
-    (useProfileCheckIn / useProfileCalendar) 与 5 个 panel
-    (Header / CheckInAlert / Calendar / ImpactDashboard / BottomSections);
+    持有 loading / errorText ref + loadProfile async; 数据源:
+      - 用户标量(姓名/积分/碳排/等级)读自 useAuthStore.user
+      - 静态 demo 块(tracks / weeklyTrend / badges / menu)读自 useContentStore.profileDemo
+    组合 2 个 composable (useProfileCheckIn / useProfileCalendar) 与
+    5 个 panel (Header / CheckInAlert / Calendar / ImpactDashboard / BottomSections);
     持有 3 个静态常量 (PROFILE_TASKS / ACHIEVEMENTS / ACTIVITIES);
     派生 levelProgress computed; 走 useRevealOnScroll 页面级 reveal。
 -->
@@ -14,8 +15,8 @@ import { computed, onMounted, ref } from "vue";
 import { useRevealOnScroll } from "../../composables/useRevealOnScroll";
 import { useProfileCheckIn } from "../../composables/useProfileCheckIn";
 import { useProfileCalendar } from "../../composables/useProfileCalendar";
-import { fetchProfileData } from "../../mock/clientApi";
-import { fetchRealDate, fetchCalendarWithOrders } from "../../mock/timeApi";
+import { useAuthStore } from "../../stores/auth";
+import { useContentStore } from "../../stores/content";
 import ProfileHeaderPanel from "../../components/client/profile/ProfileHeaderPanel.vue";
 import ProfileImpactDashboard from "../../components/client/profile/ProfileImpactDashboard.vue";
 import ProfileCheckInAlert from "../../components/client/profile/ProfileCheckInAlert.vue";
@@ -27,7 +28,23 @@ useRevealOnScroll(pageRef);
 
 const loading = ref(true);
 const errorText = ref("");
-const profile = ref(null);
+
+const authStore = useAuthStore();
+const contentStore = useContentStore();
+
+const profileName = computed(() => authStore.user?.displayName || "");
+const profilePoints = computed(() => Number(authStore.user?.pointsBalance || 0));
+const profileCarbon = computed(() => {
+  const v = Number(authStore.user?.carbonReductionTotal || 0);
+  return `累计减排 ${v} kgCO2`;
+});
+const profileLevel = computed(() => authStore.user?.levelText || "Lv.1 入门用户");
+
+const demoData = computed(() => contentStore.profileDemo);
+const tracks = computed(() => demoData.value?.tracks || []);
+const weeklyTrend = computed(() => demoData.value?.weeklyTrend || []);
+const badges = computed(() => demoData.value?.badges || []);
+const menuItems = computed(() => demoData.value?.menu || []);
 
 const {
   streakDays,
@@ -66,27 +83,22 @@ function handleCalendarReady(el) {
 const selectedPeriod = ref('本月'); // 本周, 本月, 季度
 
 const levelProgress = computed(() => {
-  const points = profile.value?.points ?? 0;
-  return Math.min(100, Math.max(0, (points % 1000) / 10));
+  return Math.min(100, Math.max(0, (profilePoints.value % 1000) / 10));
 });
 
 async function loadProfile() {
   loading.value = true;
   errorText.value = "";
   try {
-    const [profileData, realDate] = await Promise.all([
-      fetchProfileData(),
-      fetchRealDate(),
+    const now = new Date();
+    await Promise.all([
+      contentStore.fetchProfileDemo(),
+      initializeCalendar({
+        year: now.getFullYear(),
+        month: now.getMonth(),
+        day: now.getDate(),
+      }),
     ]);
-    const calendarDate = realDate || {
-      year: new Date().getFullYear(),
-      month: new Date().getMonth(),
-      day: new Date().getDate(),
-    };
-    const ordersData = await fetchCalendarWithOrders(calendarDate.year, calendarDate.month);
-
-    profile.value = profileData;
-    initializeCalendar(calendarDate, ordersData);
     checkTodayCheckIn();
   } catch (error) {
     errorText.value = "个人信息加载失败，请稍后重试。";
@@ -132,7 +144,10 @@ const PROFILE_ACTIVITIES = [
 
     <div v-else class="profile-content">
       <ProfileHeaderPanel
-        :profile="profile"
+        :name="profileName"
+        :points="profilePoints"
+        :level-text="profileLevel"
+        :carbon-text="profileCarbon"
         :guardian-days="guardianDays"
         :level-progress="levelProgress"
         :is-guardian-days-updating="isGuardianDaysUpdating"
@@ -155,7 +170,8 @@ const PROFILE_ACTIVITIES = [
       />
 
       <ProfileImpactDashboard
-        :points="profile.points"
+        :points="profilePoints"
+        :weekly-trend="weeklyTrend"
         :selected-period="selectedPeriod"
         @update:selected-period="selectedPeriod = $event"
       />
@@ -164,6 +180,9 @@ const PROFILE_ACTIVITIES = [
         :tasks="PROFILE_TASKS"
         :achievements="PROFILE_ACHIEVEMENTS"
         :activities="PROFILE_ACTIVITIES"
+        :tracks="tracks"
+        :badges="badges"
+        :menu="menuItems"
         @view-all-achievements="() => {/* TODO: 接入路由跳转 */}"
       />
     </div>
