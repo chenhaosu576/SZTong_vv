@@ -9,7 +9,7 @@
 
 ### 1.1 文档反复强调的"4 个首批页面"
 
-`design.md` 第 8.1 节"迁移步骤"列出的 4 个 C 端页面是 AuthPage / AppointmentPage / OrdersPage / ProfilePage；`CLAUDE.md` 与历次 commit 反复强调"逐页从 mock 切到真实接口"。
+用户口径"第一批页面 = AuthPage / AppointmentPage / CharityPage / OrdersPage"，对齐 `design.md` 第 8.1 节"迁移步骤"前 3 步（Step 1 切基础设施、Step 2 AuthPage、Step 3 OrdersPage + AppointmentPage、Step 4 ProfilePage、Step 5 CharityPage + ServiceCenterDetailPage）中的 AuthPage / AppointmentPage / OrdersPage，并把 design.md Step 5 的 CharityPage 一并提到本批。ProfilePage 与 ServiceCenterDetailPage 已分别通过 `useProfileCalendar` / `useServiceCentersStore` 接通，本批不重复。
 
 ### 1.2 实际迁移进度（探查后）
 
@@ -46,7 +46,7 @@
 
 1. **CharityPage 接通真实接口**：项目列表来自 `charity_projects` 表，紧急度由后端按 `deadline` 算，regions 由后端返回
 2. **捐赠订单写 `charityProjectId` 外键**：让 `orders.charity_project_id` 真正生效
-3. **全量清理 legacy 路径**：`utils/auth.js`、`mock/clientApi.js` 整文件删除；`App.vue` / `ClientLayout.vue` 切到 `useAuthStore`；`main.js` 移除 `initAuthSeed`
+3. **全量清理 legacy 路径**：`utils/auth.js`、`mock/clientApi.js` 整文件删除；`App.vue` / `ClientLayout.vue` 切到 `useAuthStore`；`initAuthSeed` 死函数随 `utils/auth.js` 一起淘汰（main.js 实际从未调用，无需额外改动）
 4. **修测试**：`composables/__tests__/useOrdersList.test.js` 改 mock `useOrdersStore`
 5. **新增测试**：`useCharityProjects` / `useCharityFilters` 单元测试；后端 `charity.projects` + `orders.donation` 集成测试
 
@@ -92,7 +92,7 @@
 | 路径 | 改动 |
 |------|------|
 | `backend/src/db/models/index.js` | 引入并导出 `CharityProject` / `CharityProjectNeed`；注册关联（`CharityProject.hasMany(CharityProjectNeed, { as: 'needs' })`；`DonationOrder.belongsTo(CharityProject, { foreignKey: 'charityProjectId' })`） |
-| `backend/src/modules/orders/orders.service.js` | `validateDonationPayload` 新增 `charityProjectId`（可选、整数校验）；`createDonationOrder` 写入；`listOrders` / `getOrderForUser` 的 `include` 自动带出 `charityProject`（关联注册后无需手动加） |
+| `backend/src/modules/orders/orders.service.js` | `validateDonationPayload` 新增 `charityProjectId`（可选、整数校验）；`createDonationOrder` 写入；`listOrders` / `getOrderForUser` 的 `donationDetail` include 显式扩 include 链（`DonationOrder` → `CharityProject`），否则 `donationDetail.charityProject` 不会带出 |
 | `backend/src/routes/index.js` | 挂 `router.use('/v1/client/charity', require('../modules/charity/routes'))` |
 | `frontend/src/views/client/CharityPage.vue` | 删除静态 `projects / regionOptions` import；用 `useCharityProjects` 注入；`useCharityFilters` 改签名为 `{ projects, regions }`；`onMounted(load)`；列表区显示 loading / errorText |
 | `frontend/src/composables/useCharityFilters.js` | 改签名：接收 `{ projects, regions }`；删除内部 `getProjectUrgency`（紧急度由 API 直接返回 `project.urgency`）；`regionOptions` 由 caller 注入；`matchesUrgency` 直接 `project.urgency === selectedUrgency.value` |
@@ -101,7 +101,7 @@
 | `frontend/src/views/auth/AuthPage.vue` | import 切到 `utils/authConstants.js` |
 | `frontend/src/App.vue` | 切到 `useAuthStore`（`computed(() => authStore.user)`、`storage` 监听 → `restoreFromStorage`） |
 | `frontend/src/layouts/ClientLayout.vue` | 切到 `useAuthStore`（`authStore.user` + `authStore.logout()`） |
-| `frontend/src/main.js` | 删除 `initAuthSeed()` 相关概念（整段函数从未在 main.js 调用，仅作为概念删除） |
+| `frontend/src/main.js` | 不变（从未 `initAuthSeed()`，该函数随 `utils/auth.js` 一起删除） |
 | `frontend/src/composables/__tests__/useOrdersList.test.js` | 改 mock `@/stores/orders`；保留所有断言 |
 | `frontend/src/composables/useImageRecognition.js` | 内联原 `mock/clientApi.analyzeImage` 的逻辑（`File` 走 `analyzeImageWithAI`，否则 `[]`），去掉对 `mock/clientApi` 的依赖 |
 | `frontend/src/components/client/charity/CharityProjectFilters.vue` | 暂时移除分类行（或留"全部需求"占位 disabled），因为后端暂不返回 `categories` 维度 |
@@ -168,6 +168,31 @@ DonationOrder.belongsTo(CharityProject, { foreignKey: 'charityProjectId', as: 'c
 **服务** `charity.service.js`
 
 ```js
+function pickNeedPayload(n) {
+  return { id: n.id, title: n.title, description: n.description, sortOrder: n.sortOrder };
+}
+
+function pickProjectPayload(p, needs, daysLeft, urgency) {
+  return {
+    id: p.id,
+    title: p.title,
+    location: p.location,
+    region: p.region,
+    tag: p.tag,
+    urgentDaysThreshold: p.urgentDaysThreshold,
+    currentProgress: p.currentProgress,
+    targetProgress: p.targetProgress,
+    progressUnit: p.progressUnit,
+    beneficiary: p.beneficiary,
+    coverImage: p.coverImage,
+    description: p.description,
+    deadline: p.deadline,
+    daysLeft,
+    urgency,
+    needs: (needs || []).map(pickNeedPayload),
+  };
+}
+
 async function listProjects({ region, urgency } = {}) {
   const where = { status: 1 };
   if (region && region !== '全国') where.region = region;
@@ -184,9 +209,9 @@ async function listProjects({ region, urgency } = {}) {
       const ms = new Date(p.deadline).getTime() - now.getTime();
       daysLeft = ms > 0 ? Math.ceil(ms / 86400000) : 0;
     }
-    const urgency = daysLeft !== null && daysLeft <= p.urgentDaysThreshold
+    const urgencyLabel = daysLeft !== null && daysLeft <= p.urgentDaysThreshold
       ? '紧急募集中' : '常态募集中';
-    return pickProjectPayload(p, p.needs, daysLeft, urgency);
+    return pickProjectPayload(p, p.needs, daysLeft, urgencyLabel);
   });
 
   const filtered = !urgency || urgency === '全部' ? list : list.filter(p => p.urgency === urgency);
@@ -238,7 +263,7 @@ const order = await Order.create({
 });
 ```
 
-`listOrders` / `getOrderForUser` 现有 `include` 不用动——`DonationOrder.belongsTo(CharityProject)` 关联注册后，Sequelize 会自动通过 `DonationOrder` 的外键拉出 `charityProject` 字段（响应里出现在 `donationDetail.charityProject`）。
+`listOrders` / `getOrderForUser` 现有 `include` 需要扩 include 链——`DonationOrder.belongsTo(CharityProject)` 关联注册后不会自动递归 include，必须把 `donationDetail` 那一条 include 显式扩成 `include: [{ model: DonationOrder, as: 'donationDetail', include: [{ model: CharityProject, as: 'charityProject' }] }]`，否则 `order.donationDetail.charityProject` 为 undefined。
 
 ### 4.3 前端 CharityPage 接线
 
