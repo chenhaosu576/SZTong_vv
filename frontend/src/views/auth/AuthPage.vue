@@ -3,7 +3,7 @@ import { computed, reactive, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import { useAuthStore } from "../../stores/auth";
-import { MIN_PASSWORD_LENGTH, ROLE_CLIENT } from "../../utils/auth";
+import { MIN_PASSWORD_LENGTH, ROLE_CLIENT } from "../../utils/authConstants";
 
 const router = useRouter();
 const route = useRoute();
