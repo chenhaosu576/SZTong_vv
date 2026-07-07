@@ -6,17 +6,16 @@
      view 只保留布局容器、响应式断点、和两段协调函数。 -->
 
 <script setup>
-import { ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 
 import { useRevealOnScroll } from "@/composables/useRevealOnScroll";
+import { useCharityProjects } from "@/composables/useCharityProjects";
 import { useCharityFilters } from "@/composables/useCharityFilters";
 import { useDonationForm } from "@/composables/useDonationForm";
 import { useDonationSubmit } from "@/composables/useDonationSubmit";
 import {
-  projects,
   categories,
   urgencyOptions,
-  regionOptions,
   processSteps,
   trustFeatures,
 } from "@/utils/charityConstants";
@@ -33,13 +32,17 @@ import CharityTrustSection from "@/components/client/charity/CharityTrustSection
 const pageRef = ref(null);
 useRevealOnScroll(pageRef);
 
-const filters = useCharityFilters(projects);
+const { projects, regions, loading, errorText, load } = useCharityProjects();
+const filters = useCharityFilters({ projects, regions });
+const regionOptions = computed(() => ["全国", ...regions.value]);
 const donationForm = useDonationForm();
 const submit = useDonationSubmit({
   donationForm: donationForm.donationForm,
   getSelectedProject: () => filters.selectedProject.value,
   onSuccess: donationForm.resetForm,
 });
+
+onMounted(load);
 
 function onSelectProject(project) {
   filters.selectProject(project);
@@ -67,20 +70,20 @@ function scrollToSection(id) {
       </div>
       <div class="filter-section">
         <CharityProjectFilters
-          :categories="categories"
           :region-options="regionOptions"
           :urgency-options="urgencyOptions"
-          :selected-category="filters.selectedCategory.value"
           :selected-region="filters.selectedRegion.value"
           :selected-urgency="filters.selectedUrgency.value"
           :search-keyword="filters.searchKeyword.value"
-          @update:selected-category="filters.setSelectedCategory"
           @update:selected-region="filters.setSelectedRegion"
           @update:selected-urgency="filters.setSelectedUrgency"
           @update:search-keyword="filters.setSearchKeyword"
         />
       </div>
+      <div v-if="loading.value" class="state-line">正在加载公益项目…</div>
+      <div v-else-if="errorText" class="state-line state-error">{{ errorText }}</div>
       <CharityProjectsGrid
+        v-else
         :projects="filters.filteredProjects.value"
         :selected-project-id="filters.selectedProject.value?.id ?? null"
         @select-project="onSelectProject"
@@ -186,5 +189,20 @@ function scrollToSection(id) {
   .detail-right {
     position: static;
   }
+}
+
+.state-line {
+  padding: 24px 0;
+  color: var(--ink-600);
+  text-align: center;
+  font-size: 0.95rem;
+}
+
+.state-line.state-error {
+  color: #8f431d;
+  background: rgba(255, 242, 232, 0.6);
+  border: 1px solid rgba(194, 131, 47, 0.3);
+  border-radius: 12px;
+  padding: 16px;
 }
 </style>
