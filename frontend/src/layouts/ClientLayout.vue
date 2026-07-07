@@ -1,25 +1,25 @@
 <script setup>
-import { onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { RouterView, useRouter } from "vue-router";
 
 import AuroraBackground from "../components/common/AuroraBackground.vue";
 import NavBar from "../components/common/NavBar.vue";
 import SiteFooter from "../components/common/SiteFooter.vue";
 import { publicNavLinks } from "../router/siteMap";
-import { getCurrentUser, logout } from "../utils/auth";
+import { useAuthStore } from "../stores/auth";
 
 const router = useRouter();
-const user = ref(getCurrentUser());
+const authStore = useAuthStore();
+const user = computed(() => authStore.user);
 const scrollProgress = ref(0);
 let removeAfterEach = null;
 
 function syncUser() {
-  user.value = getCurrentUser();
+  authStore.restoreFromStorage();
 }
 
 function handleLogout() {
-  logout();
-  syncUser();
+  authStore.logout();
 
   if (router.currentRoute.value.path !== "/") {
     router.push("/");
