@@ -10,7 +10,7 @@
 //   recycle estimated_points 走 weightBand 查表
 //   donation estimated_points = 0(本轮不接 B 端,granted_points 仅 B 端发放)
 
-const { Order, RecycleOrder, DonationOrder, ServiceCenter } = require('../../db/models');
+const { Order, RecycleOrder, DonationOrder, ServiceCenter, CharityProject } = require('../../db/models');
 const { Op } = require('sequelize');
 const ApiError = require('../../utils/ApiError');
 
@@ -71,6 +71,13 @@ function pickOrderPayload(order, recycleDetail, donationDetail, center) {
         logisticsType: donationDetail.logisticsType,
         projectTitle: donationDetail.projectTitle,
         projectLocation: donationDetail.projectLocation,
+        charityProject: donationDetail.charityProject
+          ? {
+              id: donationDetail.charityProject.id,
+              title: donationDetail.charityProject.title,
+              region: donationDetail.charityProject.region,
+            }
+          : null,
       }
     : null;
   return base;
@@ -90,7 +97,11 @@ async function listOrders(userId, { status, dateFrom, dateTo, page = 1, pageSize
     where,
     include: [
       { model: RecycleOrder, as: 'recycleDetail' },
-      { model: DonationOrder, as: 'donationDetail' },
+      {
+        model: DonationOrder,
+        as: 'donationDetail',
+        include: [{ model: CharityProject, as: 'charityProject' }],
+      },
       { model: ServiceCenter, as: 'serviceCenter' },
     ],
     order: [['createdAt', 'DESC']],
@@ -109,7 +120,11 @@ async function getOrderForUser(userId, orderId) {
     where: { id: orderId, userId },
     include: [
       { model: RecycleOrder, as: 'recycleDetail' },
-      { model: DonationOrder, as: 'donationDetail' },
+      {
+        model: DonationOrder,
+        as: 'donationDetail',
+        include: [{ model: CharityProject, as: 'charityProject' }],
+      },
       { model: ServiceCenter, as: 'serviceCenter' },
     ],
   });
@@ -142,12 +157,17 @@ function validateRecyclePayload(payload) {
 }
 
 function validateDonationPayload(payload) {
-  const { itemType, itemName, contactName, contactPhone } = payload || {};
+  const { itemType, itemName, contactName, contactPhone, charityProjectId } = payload || {};
   if (!itemType || !itemType.trim()) throw new ApiError(40001, '请选择物品类型');
   if (!itemName || !itemName.trim()) throw new ApiError(40001, '请填写物品名称');
   if (!contactName || !contactName.trim()) throw new ApiError(40001, '请填写联系人');
   if (!contactPhone || !PHONE_REGEX.test(contactPhone)) {
     throw new ApiError(40001, '请输入有效手机号');
+  }
+  if (charityProjectId != null) {
+    if (!Number.isInteger(charityProjectId) || charityProjectId < 1) {
+      throw new ApiError(40001, 'charityProjectId 必须是正整数');
+    }
   }
 }
 
@@ -211,7 +231,7 @@ async function createDonationOrder(userId, payload) {
 
   await DonationOrder.create({
     orderId: order.id,
-    charityProjectId: null,
+    charityProjectId: payload.charityProjectId ?? null,
     projectTitle: payload.projectTitle?.trim() || null,
     projectLocation: payload.projectLocation?.trim() || null,
     itemType: payload.itemType.trim(),

@@ -5,7 +5,7 @@
 const request = require('supertest');
 const bcrypt = require('bcryptjs');
 const app = require('../../src/app');
-const { User, Order, RecycleOrder, DonationOrder } = require('../../src/db/models');
+const { User, Order, RecycleOrder, DonationOrder, CharityProject } = require('../../src/db/models');
 const { setupTestDb, closeDb } = require('./helpers');
 
 describe('POST /api/v1/client/orders/donation', () => {
@@ -18,6 +18,7 @@ describe('POST /api/v1/client/orders/donation', () => {
     await closeDb();
   });
   beforeEach(async () => {
+    await CharityProject.destroy({ where: {}, force: true });
     await RecycleOrder.destroy({ where: {}, force: true });
     await DonationOrder.destroy({ where: {}, force: true });
     await Order.destroy({ where: {}, force: true });
@@ -82,6 +83,70 @@ describe('POST /api/v1/client/orders/donation', () => {
         itemType: '纺织旧衣',
         contactName: '林岚',
         contactPhone: '13800001111',
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe(40001);
+  });
+
+  test('带 charityProjectId → DB orders.charity_project_id 落库', async () => {
+    const project = await CharityProject.create({
+      title: '测试公益', region: 'X', status: 1,
+      currentProgress: 0, targetProgress: 100, progressUnit: '件', urgentDaysThreshold: 7,
+    });
+
+    const res = await request(app)
+      .post('/api/v1/client/orders/donation')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        charityProjectId: project.id,
+        projectTitle: '测试公益',
+        projectLocation: 'X',
+        itemType: '纺织旧衣', itemName: '秋冬棉服',
+        quantityText: '6件', weightText: '5kg',
+        conditionText: '八成新', logisticsType: '顺丰到付',
+        contactName: '林岚', contactPhone: '13800001111',
+      });
+
+    expect(res.status).toBe(201);
+    const row = await DonationOrder.findOne({ where: { orderId: res.body.data.id } });
+    expect(row.charityProjectId).toBe(project.id);
+  });
+
+  test('GET /orders 列表里 donationDetail.charityProject.id 能联出', async () => {
+    const project = await CharityProject.create({
+      title: '联出测试', region: 'X', status: 1,
+      currentProgress: 0, targetProgress: 100, progressUnit: '件', urgentDaysThreshold: 7,
+    });
+    await request(app)
+      .post('/api/v1/client/orders/donation')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        charityProjectId: project.id,
+        projectTitle: '联出测试', projectLocation: 'X',
+        itemType: '纺织旧衣', itemName: '秋冬棉服',
+        contactName: '林岚', contactPhone: '13800001111',
+      });
+
+    const listRes = await request(app)
+      .get('/api/v1/client/orders')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(listRes.status).toBe(200);
+    const donationOrder = listRes.body.data.list.find((o) => o.donationDetail);
+    expect(donationOrder).toBeDefined();
+    expect(donationOrder.donationDetail.charityProject).toBeDefined();
+    expect(donationOrder.donationDetail.charityProject.id).toBe(project.id);
+  });
+
+  test('charityProjectId=-1 → 40001', async () => {
+    const res = await request(app)
+      .post('/api/v1/client/orders/donation')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        charityProjectId: -1,
+        itemType: '纺织旧衣', itemName: '秋冬棉服',
+        contactName: '林岚', contactPhone: '13800001111',
       });
 
     expect(res.status).toBe(400);
