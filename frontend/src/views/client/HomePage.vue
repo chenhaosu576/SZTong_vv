@@ -12,12 +12,12 @@
      view 只保留布局容器、加载/错误状态、主页级响应式断点(影响多 section)。 -->
 
 <script setup>
-import { onMounted, ref, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 
 import { useRevealOnScroll } from "@/composables/useRevealOnScroll";
 import { useTypewriter } from "@/composables/useTypewriter";
-import { fetchHomeData } from "@/mock/clientApi";
+import { useContentStore } from "@/stores/content";
 
 import HomeHeroPanel from "@/components/client/home/HomeHeroPanel.vue";
 import HomeCoreFunctionsPanel from "@/components/client/home/HomeCoreFunctionsPanel.vue";
@@ -34,21 +34,13 @@ const servicesSectionRef = ref(null);
 useRevealOnScroll(pageRef);
 const router = useRouter();
 
-const loading = ref(true);
-const loadError = ref("");
-const home = ref(null);
+const contentStore = useContentStore();
+const loading = computed(() => contentStore.loading);
+const loadError = computed(() => contentStore.errorText);
+const home = computed(() => contentStore.home);
 
 async function loadHome() {
-  loading.value = true;
-  loadError.value = "";
-  try {
-    const data = await fetchHomeData();
-    home.value = data;
-  } catch {
-    loadError.value = "首页数据加载失败，请稍后重试。";
-  } finally {
-    loading.value = false;
-  }
+  await contentStore.fetchHome();
 }
 
 const typewriter = useTypewriter({ delay: 58, startDelay: 320 });
