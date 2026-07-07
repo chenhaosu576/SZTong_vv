@@ -1,14 +1,25 @@
 import { onBeforeUnmount, ref } from "vue";
-import { analyzeImage } from "../mock/clientApi";
+import { analyzeImageWithAI } from "../mock/picAI";
 
 /**
- * Owns the lifecycle of an uploaded image and the in-flight recognition call.
- * Returns refs the caller reads directly plus two functions to mutate state.
- * Mounted-time unmount cleanup is built in so callers don't have to remember
- * to revoke object URLs.
+ * 默认 analyzer:File 走真实 AI 识别 (analyzeImageWithAI),否则返回空数组
+ * (前端 caller 用空数组显示示例)。
+ * 调用方可通过 options.analyzer 注入自定义识别器。
  */
+const defaultAnalyzer = async (imageSource) => {
+  if (imageSource instanceof File) {
+    try {
+      return await analyzeImageWithAI(imageSource);
+    } catch (error) {
+      console.error("AI 识别失败:", error);
+      return [];
+    }
+  }
+  return [];
+};
+
 export function useImageRecognition(options = {}) {
-  const analyzer = options.analyzer ?? analyzeImage;
+  const analyzer = options.analyzer ?? defaultAnalyzer;
 
   const imageUrl = ref("");
   const imageName = ref("");
