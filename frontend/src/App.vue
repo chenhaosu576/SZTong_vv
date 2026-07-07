@@ -1,16 +1,16 @@
 ﻿<script setup>
-import { onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { RouterView, useRoute, useRouter } from "vue-router";
 
 import LoginPromptModal from "./components/common/LoginPromptModal.vue";
 import ClickSpark from "./components/common/ClickSpark.vue";
-import { getCurrentUser } from "./utils/auth";
+import { useAuthStore } from "./stores/auth";
 
 const route = useRoute();
 const router = useRouter();
+const authStore = useAuthStore();
 
 const showPrompt = ref(false);
-const user = ref(getCurrentUser());
 let timer = null;
 
 function clearTimer() {
@@ -21,13 +21,12 @@ function clearTimer() {
 }
 
 function syncUser() {
-  user.value = getCurrentUser();
+  authStore.restoreFromStorage();
 }
 
 function shouldPrompt() {
-  if (user.value) return false;
+  if (authStore.isAuthed) return false;
   if (route.path === "/auth") return false;
-  // 每个浏览器会话只弹一次，避免反复打断浏览体验
   if (sessionStorage.getItem("szt_prompted") === "1") return false;
   return true;
 }
@@ -40,7 +39,6 @@ function setupPromptTimer() {
     return;
   }
 
-  // 进入站点约 3 秒后再提示去登录/注册
   timer = window.setTimeout(() => {
     showPrompt.value = true;
     sessionStorage.setItem("szt_prompted", "1");
