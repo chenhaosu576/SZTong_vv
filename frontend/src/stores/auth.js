@@ -60,5 +60,16 @@ export const useAuthStore = defineStore("auth", {
         }
       }
     },
+
+    async refreshFromMe() {
+      try {
+        const data = await authApi.fetchMe();
+        this.user = data;
+        localStorage.setItem(USER_KEY, JSON.stringify(data));
+      } catch {
+        // 401 等失败场景:保留旧 user,不强制清。
+        // 不在这里调 logout,避免后端暂时不可用时把用户踢掉。
+      }
+    },
   },
 });

@@ -5,6 +5,7 @@
 //   - 注册 router
 //   - 导入全局 CSS
 //   - 挂载前恢复 authStore 登录态(restoreFromStorage)
+//   - 若已登录,启动期 best-effort 调 refreshFromMe 拉取最新 user 字段再 mount
 //   - mount('#app')
 
 import { createApp } from "vue";
@@ -24,4 +25,11 @@ const authStore = useAuthStore();
 authStore.restoreFromStorage();
 
 app.use(router);
-app.mount("#app");
+
+if (authStore.isAuthed) {
+  authStore.refreshFromMe().finally(() => {
+    app.mount("#app");
+  });
+} else {
+  app.mount("#app");
+}
