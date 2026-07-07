@@ -125,4 +125,54 @@ describe('GET /api/v1/client/orders', () => {
     expect(res.status).toBe(404);
     expect(res.body.code).toBe(40401);
   });
+
+  test('dateFrom 过滤 → 只返回 >= dateFrom 的订单', async () => {
+    // 一条 2026-12-01,一条 2026-12-15
+    await request(app)
+      .post('/api/v1/client/orders/recycle')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        category: '小家电', weightBand: '5-10kg', estimatedWeight: 6.5,
+        scheduledDate: '2026-12-01', scheduledPeriod: '09:00-12:00',
+        contactName: '张三', contactPhone: '13800001111', addressSnapshot: '...',
+      });
+    await request(app)
+      .post('/api/v1/client/orders/recycle')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        category: '小家电', weightBand: '5-10kg', estimatedWeight: 6.5,
+        scheduledDate: '2026-12-15', scheduledPeriod: '09:00-12:00',
+        contactName: '张三', contactPhone: '13800001111', addressSnapshot: '...',
+      });
+
+    const res = await request(app)
+      .get('/api/v1/client/orders?dateFrom=2026-12-10')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.total).toBe(1);
+    expect(res.body.data.list[0].scheduledDate).toBe('2026-12-15');
+  });
+
+  test('dateFrom + dateTo 夹逼 → 返回范围以内', async () => {
+    // 3 条: 12-01, 12-15, 12-30
+    for (const date of ['2026-12-01', '2026-12-15', '2026-12-30']) {
+      await request(app)
+        .post('/api/v1/client/orders/recycle')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          category: '小家电', weightBand: '5-10kg', estimatedWeight: 6.5,
+          scheduledDate: date, scheduledPeriod: '09:00-12:00',
+          contactName: '张三', contactPhone: '13800001111', addressSnapshot: '...',
+        });
+    }
+
+    const res = await request(app)
+      .get('/api/v1/client/orders?dateFrom=2026-12-10&dateTo=2026-12-20')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.total).toBe(1);
+    expect(res.body.data.list[0].scheduledDate).toBe('2026-12-15');
+  });
 });
