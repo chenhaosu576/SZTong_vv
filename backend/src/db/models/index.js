@@ -17,6 +17,7 @@ const Admin         = require('./admin')(sequelize, Sequelize.DataTypes);
 const Order         = require('./order')(sequelize, Sequelize.DataTypes);
 const RecycleOrder  = require('./recycleOrder')(sequelize, Sequelize.DataTypes);
 const DonationOrder = require('./donationOrder')(sequelize, Sequelize.DataTypes);
+const { CharityProject, CharityProjectNeed } = require('./charityProject')(sequelize, Sequelize.DataTypes);
 const HomeContent        = require('./homeContent')(sequelize, Sequelize.DataTypes);
 const FaqContent         = require('./faqContent')(sequelize, Sequelize.DataTypes);
 const SiteStats          = require('./siteStats')(sequelize, Sequelize.DataTypes);
@@ -61,6 +62,8 @@ module.exports = {
   Order,
   RecycleOrder,
   DonationOrder,
+  CharityProject,
+  CharityProjectNeed,
     HomeContent,
     FaqContent,
     SiteStats,
