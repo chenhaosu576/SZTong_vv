@@ -17,6 +17,10 @@ const Admin         = require('./admin')(sequelize, Sequelize.DataTypes);
 const Order         = require('./order')(sequelize, Sequelize.DataTypes);
 const RecycleOrder  = require('./recycleOrder')(sequelize, Sequelize.DataTypes);
 const DonationOrder = require('./donationOrder')(sequelize, Sequelize.DataTypes);
+const HomeContent        = require('./homeContent')(sequelize, Sequelize.DataTypes);
+const FaqContent         = require('./faqContent')(sequelize, Sequelize.DataTypes);
+const SiteStats          = require('./siteStats')(sequelize, Sequelize.DataTypes);
+const ProfileDemoContent = require('./profileDemoContent')(sequelize, Sequelize.DataTypes);
 
 // ============ 关联关系 ============
 
@@ -57,4 +61,8 @@ module.exports = {
   Order,
   RecycleOrder,
   DonationOrder,
+    HomeContent,
+    FaqContent,
+    SiteStats,
+    ProfileDemoContent,
 };

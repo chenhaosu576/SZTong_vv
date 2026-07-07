@@ -67,6 +67,11 @@ module.exports = (sequelize, DataTypes) => {
         field: 'carbon_reduction_total',
         validate: { min: 0 },
       },
+      levelText: {
+        type: DataTypes.STRING(60),
+        allowNull: true,
+        field: 'level_text',
+      },
       lastLoginAt: {
         type: DataTypes.DATE,
         allowNull: true,
