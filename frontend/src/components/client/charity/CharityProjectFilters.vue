@@ -1,22 +1,19 @@
 <!-- CharityProjectFilters.vue -->
 <!-- 公益项目列表的筛选条。
-     类目 chips + 区域 select + 紧急度 select + 搜索框。
+     区域 select + 紧急度 select + 搜索框 (categories 行临时移除,后端暂未返回 categories 字段)。
      所有字段通过 props 接收,变化通过 update:* 事件抛出,
      不持有任何状态。 -->
 
 <script setup>
 defineProps({
-  categories: { type: Array, required: true },
   regionOptions: { type: Array, required: true },
   urgencyOptions: { type: Array, required: true },
-  selectedCategory: { type: String, required: true },
   selectedRegion: { type: String, required: true },
   selectedUrgency: { type: String, required: true },
   searchKeyword: { type: String, required: true },
 });
 
 defineEmits([
-  "update:selected-category",
   "update:selected-region",
   "update:selected-urgency",
   "update:search-keyword",
@@ -25,17 +22,6 @@ defineEmits([
 
 <template>
   <div class="filter-bar">
-    <div class="filter-categories">
-      <button
-        v-for="cat in categories"
-        :key="cat"
-        type="button"
-        :class="['filter-btn', selectedCategory === cat ? 'active' : '']"
-        @click="$emit('update:selected-category', cat)"
-      >
-        {{ cat }}
-      </button>
-    </div>
     <div class="filter-controls">
       <select
         :value="selectedRegion"
