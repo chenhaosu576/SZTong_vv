@@ -49,6 +49,7 @@ export function useDonationSubmit({ donationForm, getSelectedProject, onSuccess 
 
     try {
       const payload = {
+        charityProjectId: selectedProject?.id ?? null,
         projectTitle: selectedProject.title,
         projectLocation: selectedProject.location,
         itemType: String(form.itemType || "").trim(),
