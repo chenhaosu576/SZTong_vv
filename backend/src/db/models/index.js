@@ -45,6 +45,9 @@ RecycleOrder.belongsTo(Order, { foreignKey: 'orderId', as: 'order' });
 Order.hasOne(DonationOrder, { foreignKey: 'orderId', as: 'donationDetail' });
 DonationOrder.belongsTo(Order, { foreignKey: 'orderId', as: 'order' });
 
+// DonationOrder N → 1 CharityProject
+DonationOrder.belongsTo(CharityProject, { foreignKey: 'charityProjectId', as: 'charityProject' });
+
 // Role 1 → N Admin
 Role.hasMany(Admin, { foreignKey: 'roleId', as: 'admins' });
 Admin.belongsTo(Role, { foreignKey: 'roleId', as: 'role' });
