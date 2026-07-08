@@ -96,7 +96,7 @@ async function listSlots(code, { dateFrom, dateTo } = {}) {
       serviceDate: { [Op.between]: [from, to] },
       status: 1,
     },
-    order: [['service_date', 'ASC'], ['period', 'ASC']],
+    order: [['serviceDate', 'ASC'], ['period', 'ASC']],
   });
 
   return {
