@@ -22,6 +22,7 @@ const HomeContent        = require('./homeContent')(sequelize, Sequelize.DataTyp
 const FaqContent         = require('./faqContent')(sequelize, Sequelize.DataTypes);
 const SiteStats          = require('./siteStats')(sequelize, Sequelize.DataTypes);
 const ProfileDemoContent = require('./profileDemoContent')(sequelize, Sequelize.DataTypes);
+const ServiceSlot        = require('./serviceSlot')(sequelize, Sequelize.DataTypes);
 
 // ============ 关联关系 ============
 
@@ -55,6 +56,10 @@ Admin.belongsTo(Role, { foreignKey: 'roleId', as: 'role' });
 // Admin N → 1 ServiceCenter（业务侧关联；FK 在 SQL 层已建立）
 Admin.belongsTo(ServiceCenter, { foreignKey: 'centerId', as: 'center' });
 
+// ServiceCenter 1 → N ServiceSlot
+ServiceCenter.hasMany(ServiceSlot, { foreignKey: 'serviceCenterId', as: 'slots' });
+ServiceSlot.belongsTo(ServiceCenter, { foreignKey: 'serviceCenterId', as: 'serviceCenter' });
+
 module.exports = {
   sequelize,
   Sequelize,
@@ -67,8 +72,9 @@ module.exports = {
   DonationOrder,
   CharityProject,
   CharityProjectNeed,
-    HomeContent,
-    FaqContent,
-    SiteStats,
-    ProfileDemoContent,
+  HomeContent,
+  FaqContent,
+  SiteStats,
+  ProfileDemoContent,
+  ServiceSlot,
 };
