@@ -5,6 +5,9 @@
 //
 // 字段映射说明:旧 mock 字段 hours/services/distance/ctaTo 不在新接口返回里;页面按后端
 // 实际字段渲染(status/businessHours/city/district/phone),缺数据的 fact 行降级隐藏。
+//
+// 进入页面同时拉详情与可预约时段,两条链路在 store 内 loading/errorText 互相独立;
+// 时段区块按 serviceDate 分组,available=false 的 slot 渲染为"已约满"。
 
 import { computed, onMounted, watch } from "vue";
 import { RouterLink, useRoute } from "vue-router";
@@ -17,6 +20,10 @@ const centersStore = useServiceCentersStore();
 const loading = computed(() => centersStore.loading);
 const errorText = computed(() => centersStore.errorText);
 const center = computed(() => centersStore.current);
+
+const slots = computed(() => centersStore.slots);
+const slotsLoading = computed(() => centersStore.slotsLoading);
+const slotsErrorText = computed(() => centersStore.slotsErrorText);
 
 const displayStatus = computed(() => {
   if (!center.value) return "";
@@ -48,8 +55,31 @@ const regionText = computed(() => {
     .join(" · ");
 });
 
+const WEEKDAY_LABELS = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+
+const slotsByDate = computed(() => {
+  const groups = new Map();
+  for (const slot of slots.value) {
+    if (!groups.has(slot.date)) groups.set(slot.date, []);
+    groups.get(slot.date).push(slot);
+  }
+  return Array.from(groups, ([date, items]) => ({ date, items }));
+});
+
+function formatSlotDate(iso) {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(y, m - 1, d);
+  const weekday = WEEKDAY_LABELS[dt.getDay()];
+  const mm = String(m).padStart(2, "0");
+  const dd = String(d).padStart(2, "0");
+  return `${weekday} · ${mm}月${dd}日`;
+}
+
 async function loadCenter(siteId = route.params.siteId) {
-  await centersStore.fetchDetail(siteId);
+  await Promise.all([
+    centersStore.fetchDetail(siteId),
+    centersStore.fetchSlots(siteId),
+  ]);
 }
 
 onMounted(() => {
@@ -100,6 +130,48 @@ watch(
           <p class="card-label">覆盖区域</p>
           <p class="detail-description">{{ regionText }}</p>
         </article>
+      </section>
+
+      <section class="detail-card detail-card--wide">
+        <p class="card-label">可预约时段</p>
+        <template v-if="slotsLoading">
+          <div class="slots-skeleton">
+            <div class="loading-shimmer slot-skeleton" />
+            <div class="loading-shimmer slot-skeleton" />
+            <div class="loading-shimmer slot-skeleton" />
+          </div>
+        </template>
+        <template v-else-if="slotsByDate.length">
+          <div class="slot-day-list">
+            <article
+              v-for="day in slotsByDate"
+              :key="day.date"
+              class="slot-day"
+            >
+              <p class="slot-day-label">{{ formatSlotDate(day.date) }}</p>
+              <div class="slot-pills">
+                <div
+                  v-for="slot in day.items"
+                  :key="slot.id"
+                  class="slot-pill"
+                  :class="{ 'slot-pill--full': !slot.available }"
+                >
+                  <span class="slot-period">{{ slot.period }}</span>
+                  <span class="slot-meta">
+                    <template v-if="slot.available">
+                      余 {{ slot.capacity - slot.reservedCount }} / {{ slot.capacity }}
+                    </template>
+                    <template v-else>已约满</template>
+                  </span>
+                </div>
+              </div>
+            </article>
+          </div>
+        </template>
+        <p v-else-if="slotsErrorText" class="state-error">
+          {{ slotsErrorText }}
+        </p>
+        <p v-else class="slot-empty">近期没有可预约时段</p>
       </section>
 
       <section class="detail-card detail-card--wide">
@@ -282,5 +354,90 @@ watch(
   .empty-actions > * {
     width: 100%;
   }
+
+  .slot-pill {
+    min-width: 0;
+    flex: 1 1 calc(50% - 5px);
+  }
+}
+
+.slot-day-list {
+  display: grid;
+  gap: 14px;
+}
+
+.slot-day {
+  display: grid;
+  gap: 10px;
+  padding: 16px 18px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.62);
+  border: 1px solid rgba(34, 78, 54, 0.1);
+}
+
+.slot-day-label {
+  margin: 0;
+  font-family: var(--font-data);
+  font-size: 0.86rem;
+  color: var(--ink-600);
+  letter-spacing: 0.04em;
+}
+
+.slot-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.slot-pill {
+  display: grid;
+  gap: 4px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: rgba(246, 232, 199, 0.5);
+  border: 1px solid rgba(34, 78, 54, 0.12);
+  min-width: 140px;
+}
+
+.slot-pill--full {
+  background: rgba(220, 220, 220, 0.5);
+  border-color: rgba(120, 120, 120, 0.18);
+  color: rgba(60, 60, 60, 0.55);
+}
+
+.slot-period {
+  font-family: var(--font-data);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ink-900);
+}
+
+.slot-pill--full .slot-period {
+  color: inherit;
+}
+
+.slot-meta {
+  font-size: 0.78rem;
+  color: var(--ink-600);
+}
+
+.slot-pill--full .slot-meta {
+  color: inherit;
+}
+
+.slot-skeleton {
+  height: 56px;
+  border-radius: 14px;
+}
+
+.slots-skeleton {
+  display: grid;
+  gap: 10px;
+}
+
+.slot-empty {
+  margin: 0;
+  color: var(--ink-600);
+  font-size: 0.92rem;
 }
 </style>
